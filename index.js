@@ -2,7 +2,7 @@ const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
 const puppeteer = require('puppeteer');
-const credentials2 = require('./credentials2');
+const credentials2 = require('./config');
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
@@ -15,7 +15,7 @@ const TOKEN_PATH = 'token.json';
 fs.readFile('credentials.json', (err, content) => {
   if (err) return console.log('Error loading client secret file:', err);
   // Authorize a client with credentials, then call the Gmail API.
-  authorize(JSON.parse(content), getMessages);
+  authorize(JSON.parse(content), getBadNewsMessages);
 });
 
 /**
@@ -73,24 +73,33 @@ function getNewToken(oAuth2Client, callback) {
  *
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
-function getMessages(auth) {
-    const gmail = google.gmail({version: 'v1', auth});
-    gmail.users.messages.list({
+let orderArray = [];
+
+async function getBadNewsMessages(auth) {
+  const gmail = google.gmail({version: 'v1', auth});
+
+    const messageIds = await gmail.users.messages.list({
         userId: 'me',
-        q: "bad news"
-    }, (err, res) => {
-        if (err) return console.log('The API returned an error: ' + err);
-
-        gmail.users.messages.get({
-            userId: 'me',
-            id: res.data.messages[0].id
-        }, (err, res) => {
-            if (err) return console.log('The API returned an error: ' + err);
-            const orderId = res.data.snippet.slice(173, 189)
-            console.log(orderId);
-        });
-
+        q: "bad news",
+        labelIds: ['UNREAD']
     });
+
+    console.log(messageIds.data.messages);
+
+    Promise.all(
+    messageIds.data.messages.map(async (message) => {
+      const orderid = await gmail.users.messages.get({
+        userId: 'me',
+        id: message.id
+      })
+      console.log(orderid.data.snippet.slice(173, 189))
+      const orderId = orderid.data.snippet.slice(173, 189);
+      orderArray.push({orderId: orderId, messageId: message.id});
+    })
+    ).then(responses => {
+        console.log(orderArray);
+      })
+
 }
 
 /**
@@ -98,44 +107,45 @@ function getMessages(auth) {
  *
  * 
  */
-fs.readFile('credentials2.json', (err, credentials) => {
-  let credentials = JSON.parse(credentials);
+fs.readFile('config.json', (err, config) => {
+  let credentials = JSON.parse(config);
   if (err) return console.log('Error loading client secret file:', err);
   // Authorize a client with credentials, then launch aliexpress.com
-  (async () => {
-    // Create Browser with args
-    const browser = await puppeteer.launch({ 
-      headless: false,
-      slowMo: 150,
-      args: ['--disable-notifications']
-    });
-  
-    // Open a new page and navigate to google.com
-    const page = await browser.newPage();
-    await page.goto('https://aliexpress.com');
-  
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    await page.click('.close-layer');
-  
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    await page.click('.register-btn a');
-    console.log('enter');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  
-    const loginIframeElement = await page.$('iframe[id="alibaba-login-box"]');
-    const loginIframeContent = await loginIframeElement.contentFrame();
-    await loginIframeContent.type('#fm-login-id', credentials.username, { delay: 100 });
-    await loginIframeContent.type('#fm-login-password', credentials.password, { delay: 100 });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.keyboard.press('Enter');
-  
-    const [response] = await Promise.all([
-      page.waitForNavigation(), // The promise resolves after navigation has finished
-    ]);
-  
-    // Close the browser and exit the script
-    // await browser.close();
-  })();
-  
+  //aliSignIn(credentials)
 });
+
+const aliSignIn = async (credentials) => {
+  // Create Browser with args
+  const browser = await puppeteer.launch({ 
+    headless: false,
+    slowMo: 150,
+    args: ['--disable-notifications']
+  });
+
+  // Open a new page and navigate to google.com
+  const page = await browser.newPage();
+  await page.goto('https://aliexpress.com');
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  await page.click('.close-layer');
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  await page.click('.register-btn a');
+  console.log('enter');
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  const loginIframeElement = await page.$('iframe[id="alibaba-login-box"]');
+  const loginIframeContent = await loginIframeElement.contentFrame();
+  await loginIframeContent.type('#fm-login-id', credentials.username, { delay: 100 });
+  await loginIframeContent.type('#fm-login-password', credentials.password, { delay: 100 });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await page.keyboard.press('Enter');
+
+  const [response] = await Promise.all([
+    page.waitForNavigation(), // The promise resolves after navigation has finished
+  ]);
+
+  // Close the browser and exit the script
+  // await browser.close();
+};
 
