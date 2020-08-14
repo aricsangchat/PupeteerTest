@@ -1,0 +1,24 @@
+{
+  "name": "pupeteertest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "googleapis": "^39.2.0",
+    "puppeteer": "^5.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aricsangchat/PupeteerTest.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aricsangchat/PupeteerTest/issues"
+  },
+  "homepage": "https://github.com/aricsangchat/PupeteerTest#readme"
+}
