@@ -160,7 +160,7 @@ async function initializeWorkFlow() {
       authorize(gmailCredentials, getBadNewsMessages, checkBadNewsOrders);
     });
   } 
-  Initialize Ali Credentials
+  // Initialize Ali Credentials
   fs.readFile('aliCredentials.json', (err, data) => {
     if (err) return console.log('Error loading aliCredentials.json:', err);
     aliCredentials = JSON.parse(data);
@@ -196,11 +196,31 @@ const checkBadNewsOrders = async () => {
   }
   console.log(undeliveredOrders);
   saveUndeliveredOrdersFile(undeliveredOrders);
-
+  saveDeliveredOrdersFile(deliveredOrders);
+  openDisputes();
 };
 
 const openDisputes = async () => {
-
+  for (order of undeliveredOrders) {  
+    // Go to order detail page
+    await Promise.all([
+      page.goto(`${orderDetailUrl}${order.orderId}`),
+      page.waitForNavigation(), // The promise resolves after navigation has finished
+    ])
+    // Confirm dispute is not currently open
+    let innerText = '';
+    try {
+      await page.waitForSelector('#item164732391999956 > td.trade-status > a', {
+        timeout: 5000
+      })
+      innerText = await page.evaluate(() => document.querySelector('#item164732391999956 > td.trade-status > a').innerText);
+      console.log(innerText);
+    } catch (e) {
+      if (e instanceof puppeteer.errors.TimeoutError) {
+        console.log(e);
+      }
+    }
+  }
 }
 
 const saveUndeliveredOrdersFile = (arr) => {
@@ -209,7 +229,16 @@ const saveUndeliveredOrdersFile = (arr) => {
     orders: arr
   };
   const json = JSON.stringify(obj);
-  fs.writeFile('undeliveredOrders.json', json, 'utf8');
+  fs.writeFile('undeliveredOrders.json', json, 'utf8', () => console.log('Saved File'));
+}
+
+const saveDeliveredOrdersFile = (arr) => {
+  const obj = {
+    batchTimeStamp: Date.now(),
+    orders: arr
+  };
+  const json = JSON.stringify(obj);
+  fs.writeFile('deliveredOrders.json', json, 'utf8', () => console.log('Saved File'));
 }
 
 const markMessagesAsRead = (auth) => {
