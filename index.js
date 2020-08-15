@@ -2,21 +2,18 @@ const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
 const puppeteer = require('puppeteer');
-const credentials2 = require('./config');
+let orderDetailUrl = 'https://trade.aliexpress.com/order_detail.htm?orderId=';
+let aliCredentials = {};
+let gmailCredentials = null;
+let orderArray = [];
+let page = null;
+let browser = null;
+let undeliveredOrders = [];
+let deliveredOrders = [];
 
-// If modifying these scopes, delete token.json.
+// Initialize Gmail Api and token
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
-// The file token.json stores the user's access and refresh tokens, and is
-// created automatically when the authorization flow completes for the first
-// time.
 const TOKEN_PATH = 'token.json';
-
-// Load client secrets from a local file.
-fs.readFile('credentials.json', (err, content) => {
-  if (err) return console.log('Error loading client secret file:', err);
-  // Authorize a client with credentials, then call the Gmail API.
-  authorize(JSON.parse(content), getBadNewsMessages);
-});
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -24,7 +21,7 @@ fs.readFile('credentials.json', (err, content) => {
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback) {
+function authorize(credentials, callback, callback2) {
   const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(
       client_id, client_secret, redirect_uris[0]);
@@ -33,7 +30,7 @@ function authorize(credentials, callback) {
   fs.readFile(TOKEN_PATH, (err, token) => {
     if (err) return getNewToken(oAuth2Client, callback);
     oAuth2Client.setCredentials(JSON.parse(token));
-    callback(oAuth2Client);
+    callback(oAuth2Client, callback2);
   });
 }
 
@@ -69,13 +66,12 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 /**
- * Get Bad News Messages
+ * Get and store Bad News Order Ids in orderArray
  *
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @param {function} callback Callback function to run.
  */
-let orderArray = [];
-
-async function getBadNewsMessages(auth) {
+async function getBadNewsMessages(auth, callback) {
   const gmail = google.gmail({version: 'v1', auth});
 
     const messageIds = await gmail.users.messages.list({
@@ -84,7 +80,7 @@ async function getBadNewsMessages(auth) {
         labelIds: ['UNREAD']
     });
 
-    console.log(messageIds.data.messages);
+    // console.log(messageIds.data.messages);
 
     Promise.all(
     messageIds.data.messages.map(async (message) => {
@@ -92,60 +88,134 @@ async function getBadNewsMessages(auth) {
         userId: 'me',
         id: message.id
       })
-      console.log(orderid.data.snippet.slice(173, 189))
+      //console.log(orderid.data.snippet.slice(173, 189))
       const orderId = orderid.data.snippet.slice(173, 189);
       orderArray.push({orderId: orderId, messageId: message.id});
     })
     ).then(responses => {
-        console.log(orderArray);
-      })
-
+      callback()
+    }).catch(err => {
+      console.log('Error getting Bad News Messages:', err);
+    });
 }
 
 /**
- * Puppeteer
+ * Launchs Puppeteer and Signs in to AliExpress.com
  *
- * 
  */
-fs.readFile('config.json', (err, config) => {
-  let credentials = JSON.parse(config);
-  if (err) return console.log('Error loading client secret file:', err);
-  // Authorize a client with credentials, then launch aliexpress.com
-  //aliSignIn(credentials)
-});
-
-const aliSignIn = async (credentials) => {
-  // Create Browser with args
-  const browser = await puppeteer.launch({ 
+const initializeAliExpress = async (callback) => {
+  // Creates Browser with args
+  browser = await puppeteer.launch({ 
     headless: false,
     slowMo: 150,
-    args: ['--disable-notifications']
+    args: ['--disable-notifications'],
+    defaultViewport: null
   });
 
-  // Open a new page and navigate to google.com
-  const page = await browser.newPage();
+  // Open a new page and navigate to aliexpress.com
+  page = await browser.newPage();
   await page.goto('https://aliexpress.com');
-
+  // Wait 5 Seconds
   await new Promise(resolve => setTimeout(resolve, 5000));
-  await page.click('.close-layer');
-
+  // Close Popup
+  try {
+    await page.click('.close-layer');
+  } catch (e) {
+    if (e instanceof puppeteer.errors.TimeoutError) {
+      // Do something if this is a timeout.
+      console.log(e);
+    }
+  }
+  // Wait 5 Seconds
   await new Promise(resolve => setTimeout(resolve, 5000));
+  // Click Sign In Button
   await page.click('.register-btn a');
-  console.log('enter');
-  await new Promise(resolve => setTimeout(resolve, 5000));
-
+  // Wait 5 Seconds
+  await new Promise(resolve => setTimeout(resolve, 8000));
+  // Select Login Form from within Iframe
   const loginIframeElement = await page.$('iframe[id="alibaba-login-box"]');
   const loginIframeContent = await loginIframeElement.contentFrame();
-  await loginIframeContent.type('#fm-login-id', credentials.username, { delay: 100 });
-  await loginIframeContent.type('#fm-login-password', credentials.password, { delay: 100 });
+  // Fill in Username
+  await loginIframeContent.type('#fm-login-id', aliCredentials.username, { delay: 100 });
+  // Fill in Password
+  await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
+  // Wait 1 second
   await new Promise(resolve => setTimeout(resolve, 1000));
+  // Keypress Enter
   await page.keyboard.press('Enter');
-
+  // Wait login redirect
   const [response] = await Promise.all([
     page.waitForNavigation(), // The promise resolves after navigation has finished
-  ]);
-
-  // Close the browser and exit the script
-  // await browser.close();
+  ])
+  // Run Callback
+  callback();
 };
 
+async function initializeWorkFlow() {
+   // Initialize Gmail Credentials
+   const initializeGmail = () => {
+    fs.readFile('gmailCredentials.json', (err, data) => {
+      if (err) return console.log('Error loading gmail credentials.json:', err);
+      gmailCredentials = JSON.parse(data);
+      authorize(gmailCredentials, getBadNewsMessages, checkBadNewsOrders);
+    });
+  } 
+  Initialize Ali Credentials
+  fs.readFile('aliCredentials.json', (err, data) => {
+    if (err) return console.log('Error loading aliCredentials.json:', err);
+    aliCredentials = JSON.parse(data);
+    initializeAliExpress(initializeGmail);
+  });
+}
+initializeWorkFlow();
+
+const checkBadNewsOrders = async () => {
+
+  for (order of orderArray) {  
+    await Promise.all([
+      page.goto(`${orderDetailUrl}${order.orderId}`),
+      page.waitForNavigation(), // The promise resolves after navigation has finished
+    ])
+    let innerText = '';
+    try {
+      await page.waitForSelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)', {
+        timeout: 5000
+      })
+      innerText = await page.evaluate(() => document.querySelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)').innerText);
+    } catch (e) {
+      if (e instanceof puppeteer.errors.TimeoutError) {
+        undeliveredOrders.push(order);
+      }
+    }
+    console.log(order.orderId, innerText);
+    if (innerText.includes('Delivery')) {
+      deliveredOrders.push(order);
+    } else {
+      undeliveredOrders.push(order);
+    }
+  }
+  console.log(undeliveredOrders);
+  saveUndeliveredOrdersFile(undeliveredOrders);
+
+};
+
+const openDisputes = async () => {
+
+}
+
+const saveUndeliveredOrdersFile = (arr) => {
+  const obj = {
+    batchTimeStamp: Date.now(),
+    orders: arr
+  };
+  const json = JSON.stringify(obj);
+  fs.writeFile('undeliveredOrders.json', json, 'utf8');
+}
+
+const markMessagesAsRead = (auth) => {
+  const gmail = google.gmail({version: 'v1', auth});
+  gmail.users.messages.batchModify({
+    ids: [],
+    removeLabelIds: 'UNREAD'
+  });
+}
