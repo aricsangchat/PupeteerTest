@@ -11,8 +11,13 @@ let browser = null;
 let undeliveredOrders = [];
 let deliveredOrders = [];
 
-// Initialize Gmail Api and token
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
+// Set Gmail Authorization Scopes
+const SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly', 
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.labels'
+];
+// Path to Gmail Token
 const TOKEN_PATH = 'token.json';
 
 /**
@@ -80,7 +85,7 @@ async function getBadNewsMessages(auth, callback) {
         labelIds: ['UNREAD']
     });
 
-    // console.log(messageIds.data.messages);
+    console.log(messageIds.data.messages);
 
     Promise.all(
     messageIds.data.messages.map(async (message) => {
@@ -144,31 +149,15 @@ const initializeAliExpress = async (callback) => {
   // Keypress Enter
   await page.keyboard.press('Enter');
   // Wait login redirect
-  const [response] = await Promise.all([
+  await Promise.all([
     page.waitForNavigation(), // The promise resolves after navigation has finished
   ])
   // Run Callback
   callback();
 };
-
-async function initializeWorkFlow() {
-   // Initialize Gmail Credentials
-   const initializeGmail = () => {
-    fs.readFile('gmailCredentials.json', (err, data) => {
-      if (err) return console.log('Error loading gmail credentials.json:', err);
-      gmailCredentials = JSON.parse(data);
-      authorize(gmailCredentials, getBadNewsMessages, checkBadNewsOrders);
-    });
-  } 
-  // Initialize Ali Credentials
-  fs.readFile('aliCredentials.json', (err, data) => {
-    if (err) return console.log('Error loading aliCredentials.json:', err);
-    aliCredentials = JSON.parse(data);
-    initializeAliExpress(initializeGmail);
-  });
-}
-initializeWorkFlow();
-
+// Checks the BadNews orders to see if they have been delivered or not,
+// handles logic to seperate delivered and undelivered orders,
+// pushes the order ids and message ids to corresponding arrays
 const checkBadNewsOrders = async () => {
 
   for (order of orderArray) {  
@@ -195,11 +184,11 @@ const checkBadNewsOrders = async () => {
     }
   }
   console.log(undeliveredOrders);
-  saveUndeliveredOrdersFile(undeliveredOrders);
+  saveUndeliveredOrdersFile(undeliveredOrders, markMessagesAsRead);
   saveDeliveredOrdersFile(deliveredOrders);
-  openDisputes();
+  //openDisputes();
 };
-
+// Work in Progress, will open disputes for undelivered orders
 const openDisputes = async () => {
   for (order of undeliveredOrders) {  
     // Go to order detail page
@@ -220,18 +209,27 @@ const openDisputes = async () => {
         console.log(e);
       }
     }
+    await Promise.all([
+      page.click('#item164732391999956 > td.trade-status > a', {
+        delay: 200
+      }),
+      page.waitForNavigation(), // The promise resolves after navigation has finished
+    ])
+    
   }
 }
-
-const saveUndeliveredOrdersFile = (arr) => {
+// Saves undelivered orders to a JSON
+const saveUndeliveredOrdersFile = (arr, callback) => {
   const obj = {
     batchTimeStamp: Date.now(),
     orders: arr
   };
+  
   const json = JSON.stringify(obj);
-  fs.writeFile('undeliveredOrders.json', json, 'utf8', () => console.log('Saved File'));
+  fs.writeFile('undeliveredOrders.json', json, 'utf8', callback);
 }
-
+// Saves the delivered orders to a JSON for later use will automate
+// to send confirmation message on Etsy
 const saveDeliveredOrdersFile = (arr) => {
   const obj = {
     batchTimeStamp: Date.now(),
@@ -240,11 +238,39 @@ const saveDeliveredOrdersFile = (arr) => {
   const json = JSON.stringify(obj);
   fs.writeFile('deliveredOrders.json', json, 'utf8', () => console.log('Saved File'));
 }
-
-const markMessagesAsRead = (auth) => {
-  const gmail = google.gmail({version: 'v1', auth});
-  gmail.users.messages.batchModify({
-    ids: [],
-    removeLabelIds: 'UNREAD'
+// Marks messages as read after it saves the delivered
+// and undelivered files
+const markMessagesAsRead = () => {
+  let mailIds = [];
+  orderArray.map(message => {
+    mailIds.push(message.messageId);
+  });
+  authorize(gmailCredentials, (auth) => {
+    const gmail = google.gmail({version: 'v1', auth});
+    gmail.users.messages.batchModify({
+      userId: 'me',
+      requestBody: {
+        ids: mailIds,
+        removeLabelIds: 'UNREAD'
+      }
+    });
+  })
+}
+// Main function to start the work flow
+async function initializeWorkFlow() {
+   // Initialize Gmail Credentials
+   const initializeGmail = () => {
+    fs.readFile('gmailCredentials.json', (err, data) => {
+      if (err) return console.log('Error loading gmail credentials.json:', err);
+      gmailCredentials = JSON.parse(data);
+      authorize(gmailCredentials, getBadNewsMessages, checkBadNewsOrders);
+    });
+  } 
+  // Initialize Ali Credentials
+  fs.readFile('aliCredentials.json', (err, data) => {
+    if (err) return console.log('Error loading aliCredentials.json:', err);
+    aliCredentials = JSON.parse(data);
+    initializeAliExpress(initializeGmail);
   });
 }
+initializeWorkFlow();
