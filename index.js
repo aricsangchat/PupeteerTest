@@ -93,7 +93,7 @@ async function getBadNewsMessages(auth, callback) {
         userId: 'me',
         id: message.id
       })
-      //console.log(orderid.data.snippet.slice(173, 189))
+      console.log(orderid.data.snippet)
       const orderId = orderid.data.snippet.slice(173, 189);
       orderArray.push({orderId: orderId, messageId: message.id});
     })
@@ -158,13 +158,14 @@ const initializeAliExpress = async (callback) => {
 // Checks the BadNews orders to see if they have been delivered or not,
 // handles logic to seperate delivered and undelivered orders,
 // pushes the order ids and message ids to corresponding arrays
-const checkBadNewsOrders = async () => {
+const checkDelivery = async () => {
 
   for (order of orderArray) {  
     await Promise.all([
       page.goto(`${orderDetailUrl}${order.orderId}`),
       page.waitForNavigation(), // The promise resolves after navigation has finished
     ])
+    // Check Tracking status to confirm delivery
     let innerText = '';
     try {
       await page.waitForSelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)', {
@@ -176,11 +177,39 @@ const checkBadNewsOrders = async () => {
         undeliveredOrders.push(order);
       }
     }
+    // Handle If logic for delivery status
     console.log(order.orderId, innerText);
     if (innerText.includes('Delivery')) {
       deliveredOrders.push(order);
     } else {
-      undeliveredOrders.push(order);
+      // Handle non delivery
+      // Check to see if disipute is open
+      let innerText = '';
+      try {
+        await page.waitForSelector('#item164732391999956 > td.trade-status > a', {
+          timeout: 5000
+        })
+        innerText = await page.evaluate(() => document.querySelector('#item164732391999956 > td.trade-status > a').innerText);
+        
+      } catch (e) {
+        if (e instanceof puppeteer.errors.TimeoutError) {
+          console.log(e);
+        }
+      }
+      console.log('dispute status: ',innerText);
+      if (innerText == 'Open Dispute') {
+        undeliveredOrders.push({
+          orderId: order.orderId, 
+          messageId: order.messageId,
+          disputeStatus: false
+         });
+      } else {
+        undeliveredOrders.push({
+          orderId: order.orderId, 
+          messageId: order.messageId,
+          disputeStatus: true
+         });
+      }
     }
   }
   console.log(undeliveredOrders);
@@ -203,7 +232,7 @@ const openDisputes = async () => {
         timeout: 5000
       })
       innerText = await page.evaluate(() => document.querySelector('#item164732391999956 > td.trade-status > a').innerText);
-      console.log(innerText);
+      console.log('dispute text',innerText);
     } catch (e) {
       if (e instanceof puppeteer.errors.TimeoutError) {
         console.log(e);
@@ -226,7 +255,10 @@ const saveUndeliveredOrdersFile = (arr, callback) => {
   };
   
   const json = JSON.stringify(obj);
-  fs.writeFile('undeliveredOrders.json', json, 'utf8', callback);
+  fs.writeFile('undeliveredOrders.json', json, 'utf8', () => {
+    //callback()
+    console.log('saved undeliverable file')
+  });
 }
 // Saves the delivered orders to a JSON for later use will automate
 // to send confirmation message on Etsy
@@ -236,25 +268,26 @@ const saveDeliveredOrdersFile = (arr) => {
     orders: arr
   };
   const json = JSON.stringify(obj);
-  fs.writeFile('deliveredOrders.json', json, 'utf8', () => console.log('Saved File'));
+  fs.writeFile('deliveredOrders.json', json, 'utf8', () => console.log('Saved Deliverable File'));
 }
 // Marks messages as read after it saves the delivered
 // and undelivered files
 const markMessagesAsRead = () => {
-  let mailIds = [];
-  orderArray.map(message => {
-    mailIds.push(message.messageId);
-  });
-  authorize(gmailCredentials, (auth) => {
-    const gmail = google.gmail({version: 'v1', auth});
-    gmail.users.messages.batchModify({
-      userId: 'me',
-      requestBody: {
-        ids: mailIds,
-        removeLabelIds: 'UNREAD'
-      }
-    });
-  })
+  console.log('done');
+  // let mailIds = [];
+  // orderArray.map(message => {
+  //   mailIds.push(message.messageId);
+  // });
+  // authorize(gmailCredentials, (auth) => {
+  //   const gmail = google.gmail({version: 'v1', auth});
+  //   gmail.users.messages.batchModify({
+  //     userId: 'me',
+  //     requestBody: {
+  //       ids: mailIds,
+  //       removeLabelIds: 'UNREAD'
+  //     }
+  //   });
+  // })
 }
 // Main function to start the work flow
 async function initializeWorkFlow() {
@@ -263,13 +296,13 @@ async function initializeWorkFlow() {
     fs.readFile('gmailCredentials.json', (err, data) => {
       if (err) return console.log('Error loading gmail credentials.json:', err);
       gmailCredentials = JSON.parse(data);
-      authorize(gmailCredentials, getBadNewsMessages, checkBadNewsOrders);
+      authorize(gmailCredentials, getBadNewsMessages, checkDelivery);
     });
   } 
   // Initialize Ali Credentials
-  fs.readFile('aliCredentials.json', (err, data) => {
-    if (err) return console.log('Error loading aliCredentials.json:', err);
-    aliCredentials = JSON.parse(data);
+  fs.readFile('otherCredentials.json', (err, data) => {
+    if (err) return console.log('Error loading otherCredentials.json:', err);
+    aliCredentials = JSON.parse(data.ali);
     initializeAliExpress(initializeGmail);
   });
 }
