@@ -520,6 +520,7 @@ const addTrackingNumbers = async (resolve) => {
           // Select Shipping Company
           await new Promise(resolve => selectShippingCompany(resolve, order));
         }
+        // check if tracking # already exists
         if (shipStatus == 'Pre-transit') {
           const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
           console.log(trackingNumberHandle.length);
@@ -537,7 +538,8 @@ const addTrackingNumbers = async (resolve) => {
             }
           }
         }
-        if (trackingFlag == false && shipStatus == 'Pre-Transit') {
+        // If tracking does not already exist, add it
+        if (trackingFlag == false && shipStatus == 'Pre-transit') {
           // Add second tracking # to order
           console.log('add second tracking');
           // Click Options toggle
