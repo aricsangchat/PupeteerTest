@@ -20,13 +20,31 @@ const SCOPES = [
 // Path to Gmail Token
 const TOKEN_PATH = 'token.json';
 
+// Get GmailCredentials
+const getGmailCreds = (resolve) => {
+  fs.readFile('gmailCredentials.json', (err, data) => {
+    if (err) return console.log('Error loading gmail credentials.json:', err);
+    gmailCredentials = JSON.parse(data);
+    return resolve();
+  });
+}
+
+// Get AliCredentials
+const getAliCreds = (resolve) => {
+  fs.readFile('otherCredentials.json', (err, data) => {
+    if (err) return console.log('Error loading otherCredentials.json:', err);
+    aliCredentials = JSON.parse(data).ali;
+    return resolve();
+  });
+}
+
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
  * given callback function.
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback, callback2) {
+const authorize = (credentials, callback) => {
   const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(
       client_id, client_secret, redirect_uris[0]);
@@ -35,7 +53,7 @@ function authorize(credentials, callback, callback2) {
   fs.readFile(TOKEN_PATH, (err, token) => {
     if (err) return getNewToken(oAuth2Client, callback);
     oAuth2Client.setCredentials(JSON.parse(token));
-    callback(oAuth2Client, callback2);
+    callback(oAuth2Client);
   });
 }
 
@@ -45,7 +63,7 @@ function authorize(credentials, callback, callback2) {
  * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for.
  * @param {getEventsCallback} callback The callback for the authorized client.
  */
-function getNewToken(oAuth2Client, callback) {
+const getNewToken = (oAuth2Client, callback) => {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
@@ -70,134 +88,81 @@ function getNewToken(oAuth2Client, callback) {
   });
 }
 
-/**
- * Get and store Bad News Order Ids in orderArray
- *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- * @param {function} callback Callback function to run.
- */
-async function getBadNewsMessages(auth, callback) {
-  const gmail = google.gmail({version: 'v1', auth});
+//Check Gmail for Bad News Messages
+const checkEmail = async (resolve) => {
+  authorize(gmailCredentials, 
+    async (auth) => {
+      const gmail = google.gmail({version: 'v1', auth});
+  
+      const messageIds = await gmail.users.messages.list({
+          userId: 'me',
+          q: "bad news",
+          labelIds: ['UNREAD']
+      });
+  
+      console.log(messageIds.data.messages);
 
-    const messageIds = await gmail.users.messages.list({
-        userId: 'me',
-        q: "bad news",
-        labelIds: ['UNREAD']
-    });
+      for (let index = 0; index < messageIds.data.messages.length; index++) {
+        let message = await gmail.users.messages.get({
+          userId: 'me',
+          id: messageIds.data.messages[index].id
+        });
+        console.log(message.data.snippet);
+        let orderId = message.data.snippet.slice(173, 189);
+        orderArray.push({orderId: orderId, messageId: messageIds.data.messages[index].id});
+      }
 
-    console.log(messageIds.data.messages);
-
-    Promise.all(
-    messageIds.data.messages.map(async (message) => {
-      const orderid = await gmail.users.messages.get({
-        userId: 'me',
-        id: message.id
-      })
-      console.log(orderid.data.snippet)
-      const orderId = orderid.data.snippet.slice(173, 189);
-      orderArray.push({orderId: orderId, messageId: message.id});
-    })
-    ).then(responses => {
-      callback()
-    }).catch(err => {
-      console.log('Error getting Bad News Messages:', err);
-    });
+      console.log(orderArray);
+      return resolve();
+    }
+  )
 }
 
-/**
- * Launchs Puppeteer and Signs in to AliExpress.com
- *
- */
-const initializeAliExpress = async (callback) => {
-  // Creates Browser with args
-  browser = await puppeteer.launch({ 
-    headless: false,
-    slowMo: 150,
-    args: ['--disable-notifications'],
-    defaultViewport: null
-  });
-
-  // Open a new page and navigate to aliexpress.com
+// Opens AliExpress and checks to see if order was delivered
+const checkDelivery = async (resolve) => {
   page = await browser.newPage();
-  await page.goto('https://aliexpress.com');
-  // Wait 5 Seconds
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  // Close Popup
-  try {
-    await page.click('.close-layer');
-  } catch (e) {
-    if (e instanceof puppeteer.errors.TimeoutError) {
-      // Do something if this is a timeout.
-      console.log(e);
-    }
-  }
-  // Wait 5 Seconds
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  // Click Sign In Button
-  await page.click('.register-btn a');
-  // Wait 5 Seconds
-  await new Promise(resolve => setTimeout(resolve, 8000));
-  // Select Login Form from within Iframe
-  const loginIframeElement = await page.$('iframe[id="alibaba-login-box"]');
-  const loginIframeContent = await loginIframeElement.contentFrame();
-  // Fill in Username
-  await loginIframeContent.type('#fm-login-id', aliCredentials.username, { delay: 100 });
-  // Fill in Password
-  await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
-  // Wait 1 second
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  // Keypress Enter
-  await page.keyboard.press('Enter');
-  // Wait login redirect
-  await Promise.all([
-    page.waitForNavigation(), // The promise resolves after navigation has finished
-  ])
-  // Run Callback
-  callback();
-};
-// Checks the BadNews orders to see if they have been delivered or not,
-// handles logic to seperate delivered and undelivered orders,
-// pushes the order ids and message ids to corresponding arrays
-const checkDelivery = async () => {
-
+  
   for (order of orderArray) {  
     await Promise.all([
-      page.goto(`${orderDetailUrl}${order.orderId}`),
-      page.waitForNavigation(), // The promise resolves after navigation has finished
+      page.waitForNavigation(),
+      page.goto(`${orderDetailUrl}${order.orderId}`)
     ])
     // Check Tracking status to confirm delivery
-    let innerText = '';
+    let trackingStatus = '';
     try {
       await page.waitForSelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)', {
         timeout: 5000
       })
-      innerText = await page.evaluate(() => document.querySelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)').innerText);
+      trackingStatus = await page.evaluate(() => document.querySelector('#logistic-item1 > td.detail > div.list-box > ul:nth-child(1) > li:nth-child(1)').innerText);
     } catch (e) {
       if (e instanceof puppeteer.errors.TimeoutError) {
         undeliveredOrders.push(order);
       }
     }
     // Handle If logic for delivery status
-    console.log(order.orderId, innerText);
-    if (innerText.includes('Delivery')) {
-      deliveredOrders.push(order);
+    if (trackingStatus.includes('Delivery')) {
+      deliveredOrders.push({
+        orderId: order.orderId, 
+        messageId: order.messageId,
+        Status: trackingStatus
+      });
     } else {
       // Handle non delivery
       // Check to see if disipute is open
-      let innerText = '';
+      let disputeStatus = '';
       try {
         await page.waitForSelector('#item164732391999956 > td.trade-status > a', {
           timeout: 5000
         })
-        innerText = await page.evaluate(() => document.querySelector('#item164732391999956 > td.trade-status > a').innerText);
+        disputeStatus = await page.evaluate(() => document.querySelector('#item164732391999956 > td.trade-status > a').innerText);
         
       } catch (e) {
         if (e instanceof puppeteer.errors.TimeoutError) {
           console.log(e);
         }
       }
-      console.log('dispute status: ',innerText);
-      if (innerText == 'Open Dispute') {
+      
+      if (disputeStatus == 'Open Dispute') {
         undeliveredOrders.push({
           orderId: order.orderId, 
           messageId: order.messageId,
@@ -212,11 +177,9 @@ const checkDelivery = async () => {
       }
     }
   }
-  console.log(undeliveredOrders);
-  saveUndeliveredOrdersFile(undeliveredOrders, markMessagesAsRead);
-  saveDeliveredOrdersFile(deliveredOrders);
-  //openDisputes();
+  return resolve();
 };
+
 // Work in Progress, will open disputes for undelivered orders
 const openDisputes = async () => {
   for (order of undeliveredOrders) {  
@@ -247,63 +210,125 @@ const openDisputes = async () => {
     
   }
 }
-// Saves undelivered orders to a JSON
-const saveUndeliveredOrdersFile = (arr, callback) => {
+
+// Save File Function
+const saveFile = (resolve, data, fileName) => {
   const obj = {
     batchTimeStamp: Date.now(),
-    orders: arr
+    data: data
   };
-  
+
   const json = JSON.stringify(obj);
-  fs.writeFile('undeliveredOrders.json', json, 'utf8', () => {
-    //callback()
-    console.log('saved undeliverable file')
+  fs.writeFile(fileName, json, 'utf8', () => {
+    return resolve();
   });
 }
-// Saves the delivered orders to a JSON for later use will automate
-// to send confirmation message on Etsy
-const saveDeliveredOrdersFile = (arr) => {
-  const obj = {
-    batchTimeStamp: Date.now(),
-    orders: arr
-  };
-  const json = JSON.stringify(obj);
-  fs.writeFile('deliveredOrders.json', json, 'utf8', () => console.log('Saved Deliverable File'));
-}
-// Marks messages as read after it saves the delivered
-// and undelivered files
-const markMessagesAsRead = () => {
-  console.log('done');
-  // let mailIds = [];
-  // orderArray.map(message => {
-  //   mailIds.push(message.messageId);
-  // });
-  // authorize(gmailCredentials, (auth) => {
-  //   const gmail = google.gmail({version: 'v1', auth});
-  //   gmail.users.messages.batchModify({
-  //     userId: 'me',
-  //     requestBody: {
-  //       ids: mailIds,
-  //       removeLabelIds: 'UNREAD'
-  //     }
-  //   });
-  // })
-}
-// Main function to start the work flow
-async function initializeWorkFlow() {
-   // Initialize Gmail Credentials
-   const initializeGmail = () => {
-    fs.readFile('gmailCredentials.json', (err, data) => {
-      if (err) return console.log('Error loading gmail credentials.json:', err);
-      gmailCredentials = JSON.parse(data);
-      authorize(gmailCredentials, getBadNewsMessages, checkDelivery);
+
+// Marks bad news emails as read
+const markEmailAsRead = (resolve) => {
+  let mailIds = [];
+  orderArray.map(message => {
+    mailIds.push(message.messageId);
+  });
+  authorize(gmailCredentials, async (auth) => {
+    const gmail = google.gmail({version: 'v1', auth});
+    await gmail.users.messages.batchModify({
+      userId: 'me',
+      requestBody: {
+        ids: mailIds,
+        removeLabelIds: 'UNREAD'
+      }
     });
-  } 
-  // Initialize Ali Credentials
-  fs.readFile('otherCredentials.json', (err, data) => {
-    if (err) return console.log('Error loading otherCredentials.json:', err);
-    aliCredentials = JSON.parse(data.ali);
-    initializeAliExpress(initializeGmail);
+
+    return resolve();
+  })
+
+}
+
+// Login to AliExpress
+const loginAliExpress = async (resolve) => {
+  aliPage = await browser.newPage();
+  // Sign In
+  await aliPage.goto('https://aliexpress.com');
+  // Wait 5 Seconds
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Close Popup
+  try {
+      await aliPage.click('.close-layer');
+  } catch (e) {
+      if (e instanceof puppeteer.errors.TimeoutError) {
+          // Do something if this is a timeout.
+          console.log(e);
+      }
+  }
+
+  let signInText = await aliPage.evaluate(() => document.querySelector('.flyout-welcome-text').innerText);
+  console.log(signInText);
+  if (signInText == 'Welcome to AliExpress.com') {
+      // Wait 5 Seconds
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Click Sign In Button
+      await aliPage.click('.register-btn a');
+      // Wait 5 Seconds
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      // Select Login Form from within Iframe
+      const loginIframeElement = await aliPage.$('iframe[id="alibaba-login-box"]');
+      const loginIframeContent = await loginIframeElement.contentFrame();
+      // Fill in Username
+      await loginIframeContent.evaluate(() => {
+        document.querySelector('#fm-login-id').value = '';
+      });
+      await loginIframeContent.type('#fm-login-id', aliCredentials.username, { delay: 100 });
+      // Fill in Password
+      await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
+      // Wait 1 second
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Keypress Enter
+      await aliPage.keyboard.press('Enter');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      await aliPage.close();
+      return resolve();
+  } else {
+      // Already signed in
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      await aliPage.close();
+      return resolve();
+  }
+}
+
+// One function to Rule them all
+const initializeWorkFlow = async () => {
+  browser = await puppeteer.launch({ 
+    headless: false,
+    slowMo: 150,
+    args: [
+        '--disable-notifications',
+        '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
+        '--load-extension=../../AliAddressAutoFill/extension/',
+    ],
+    defaultViewport: null,
+    userDataDir: "./user_data"
   });
+  // Get gmail creds
+  await new Promise(resolve => getGmailCreds(resolve));
+  // Get ali creds
+  await new Promise(resolve => getAliCreds(resolve));
+  // Check Email for Bad News Messages
+  await new Promise(resolve => checkEmail(resolve));
+  // Login to AliExpress
+  await new Promise(resolve => loginAliExpress(resolve));
+  // Wait
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Check AliExpress to see if orders have been delivered
+  await new Promise(resolve => checkDelivery(resolve));
+  // Save delivered and undelivered data in files for later use
+  await new Promise(resolve => saveFile(resolve, undeliveredOrders, 'undelivered.json'));
+  await new Promise(resolve => saveFile(resolve, deliveredOrders, 'delivered.json'));
+  // Mark emails as read
+  await new Promise(resolve => markEmailAsRead(resolve));
+  // Finish
+  console.log('done');
+  //openDisputes();
+  
 }
 initializeWorkFlow();

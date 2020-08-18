@@ -9,7 +9,7 @@ fs.readFile('otherCredentials.json', (err, data) => {
     initiateWorkFlow(otherCredentials);
 });
 
-const initiateWorkFlow = async (etsyCredentials) => {
+const initiateWorkFlow = async () => {
     browser = await puppeteer.launch({ 
         headless: false,
         slowMo: 150,
