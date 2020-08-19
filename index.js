@@ -232,6 +232,9 @@ const markEmailAsRead = (resolve) => {
   orderArray.map(message => {
     mailIds.push(message.messageId);
   });
+  recentlyShippedOrders.map(message => {
+    mailIds.push(message.messageId);
+  })
   authorize(gmailCredentials, async (auth) => {
     const gmail = google.gmail({version: 'v1', auth});
     await gmail.users.messages.batchModify({
@@ -308,7 +311,7 @@ const checkNewTrackingEmails = (resolve) => {
           userId: 'me',
           q: "it may take up to 24 hours to see tracking information",
           labelIds: ['UNREAD'],
-          maxResults: 20
+          maxResults: 30
       });
   
       console.log(messageIds.data.messages);
@@ -456,21 +459,28 @@ const loginEtsy = async (resolve) => {
 }
 
 const selectShippingCompany = async (resolve, order) => {
-  if (order.trackingDetails.shippingCompany == 'e邮宝' || order.trackingDetails.shippingCompany.includes('AliExpress')) {
+  
     await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
     await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
-    
-    await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '-1')
-    
+    if (order.trackingDetails.shippingCompany == 'e邮宝' || order.trackingDetails.shippingCompany.includes('AliExpress')) {
+      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '-1')
+    } else if (order.trackingDetails.shippingCompany == 'FEDEX_US') {
+      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '3')
+    }
     await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
     await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
     await new Promise(resolve => setTimeout(resolve, 1500));
-    // Enter Shipping company name
-    await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-5.pr-xl-0.mb-xs-2.mb-xl-0 > div.mt-xs-2 > input', 'China EMS', {delay: 100});
+    if (order.trackingDetails.shippingCompany == 'e邮宝' || order.trackingDetails.shippingCompany.includes('AliExpress')) {
+      // Enter Shipping company name
+      await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-5.pr-xl-0.mb-xs-2.mb-xl-0 > div.mt-xs-2 > input', 'China EMS', {delay: 100});
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 500));
     await page.click('.overlay-region > div > div.overlay-footer.clearfix.bt-xs-0.p-xs-0.position-absolute.position-bottom.width-full.z-index-2 > div > div > div > div.flag.hide-xs.hide-sm > div.flag-img.flag-img-right.no-wrap > button.btn.btn-primary.btn-orange');
     return resolve();
-  }
+  
+
+  
 }
 
 // Add tracking numbers in Etsy
@@ -506,7 +516,7 @@ const addTrackingNumbers = async (resolve) => {
         let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
         console.log(shipStatus);
         let trackingFlag = false;
-        if (shipStatus !== 'Pre-transit') {
+        if (shipStatus !== 'Pre-transit' && shipStatus !== 'In transit') {
           // Add tracking # for order that has no tracking already
           console.log('add tracking')
           // Click Update Progress Icon
@@ -521,7 +531,7 @@ const addTrackingNumbers = async (resolve) => {
           await new Promise(resolve => selectShippingCompany(resolve, order));
         }
         // check if tracking # already exists
-        if (shipStatus == 'Pre-transit') {
+        if (shipStatus == 'Pre-transit' || shipStatus == 'In transit') {
           const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
           console.log(trackingNumberHandle.length);
           for (let index = 1; index <= trackingNumberHandle.length; index++) {
@@ -539,7 +549,7 @@ const addTrackingNumbers = async (resolve) => {
           }
         }
         // If tracking does not already exist, add it
-        if (trackingFlag == false && shipStatus == 'Pre-transit') {
+        if (trackingFlag == false && (shipStatus == 'Pre-transit' || shipStatus == 'In transit')) {
           // Add second tracking # to order
           console.log('add second tracking');
           // Click Options toggle
@@ -579,18 +589,17 @@ const initializeWorkFlow = async () => {
   // Get ali creds
   await new Promise(resolve => getOtherCreds(resolve));
   // Check Email for Bad News Messages
-  // await new Promise(resolve => checkEmail(resolve));
-  // // Login to AliExpress
-  // await new Promise(resolve => loginAliExpress(resolve));
-  // // Wait
-  // await new Promise(resolve => setTimeout(resolve, 1000));
-  // // Check AliExpress to see if orders have been delivered
-  // await new Promise(resolve => checkDelivery(resolve));
-  // // Save delivered and undelivered data in files for later use
-  // await new Promise(resolve => saveFile(resolve, undeliveredOrders, 'undelivered.json'));
-  // await new Promise(resolve => saveFile(resolve, deliveredOrders, 'delivered.json'));
-  // // Mark emails as read
-  // await new Promise(resolve => markEmailAsRead(resolve));
+  await new Promise(resolve => checkEmail(resolve));
+  // Login to AliExpress
+  await new Promise(resolve => loginAliExpress(resolve));
+  // Wait
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Check AliExpress to see if orders have been delivered
+  await new Promise(resolve => checkDelivery(resolve));
+  // Save delivered and undelivered data in files for later use
+  await new Promise(resolve => saveFile(resolve, undeliveredOrders, 'undelivered.json'));
+  await new Promise(resolve => saveFile(resolve, deliveredOrders, 'delivered.json'));
+  
   // Check new tracking # emails
   await new Promise(resolve => checkNewTrackingEmails(resolve));
   // Login to AliExpress
@@ -603,6 +612,8 @@ const initializeWorkFlow = async () => {
   await new Promise(resolve => loginEtsy(resolve));
   // Add Tracking Numbers in Etsy
   await new Promise(resolve => addTrackingNumbers(resolve));
+  // Mark bad news and tracking emails as read
+  await new Promise(resolve => markEmailAsRead(resolve));
   // Finish
   console.log('done');
   //openDisputes();
