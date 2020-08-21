@@ -516,7 +516,8 @@ const addTrackingNumbers = async (resolve) => {
         let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
         console.log(shipStatus);
         let trackingFlag = false;
-        if (shipStatus !== 'Pre-transit' && shipStatus !== 'In transit') {
+        // Add First Trakcing Number
+        if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
           // Add tracking # for order that has no tracking already
           console.log('add tracking')
           // Click Update Progress Icon
@@ -530,8 +531,8 @@ const addTrackingNumbers = async (resolve) => {
           // Select Shipping Company
           await new Promise(resolve => selectShippingCompany(resolve, order));
         }
-        // check if tracking # already exists
-        if (shipStatus == 'Pre-transit' || shipStatus == 'In transit') {
+        // Check if tracking # already exists
+        if (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered')) {
           const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
           console.log(trackingNumberHandle.length);
           for (let index = 1; index <= trackingNumberHandle.length; index++) {
@@ -549,7 +550,7 @@ const addTrackingNumbers = async (resolve) => {
           }
         }
         // If tracking does not already exist, add it
-        if (trackingFlag == false && (shipStatus == 'Pre-transit' || shipStatus == 'In transit')) {
+        if (trackingFlag == false && (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered'))) {
           // Add second tracking # to order
           console.log('add second tracking');
           // Click Options toggle
@@ -557,8 +558,10 @@ const addTrackingNumbers = async (resolve) => {
           await new Promise(resolve => setTimeout(resolve, 1000));
           // Click Add tracking link
           await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) > div > div > div > ul > li:nth-child(2) span');
+          await new Promise(resolve => setTimeout(resolve, 1500));
           // Enter Tracking Number
           await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
+          
           await new Promise(resolve => setTimeout(resolve, 1500));
           // Select Shipping Company
           await new Promise(resolve => selectShippingCompany(resolve, order));
