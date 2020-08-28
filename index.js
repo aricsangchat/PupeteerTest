@@ -100,21 +100,24 @@ const checkEmail = async (resolve) => {
           userId: 'me',
           q: "bad news",
           labelIds: ['UNREAD']
-      });
+      }).catch(e => console.log(e))
   
-      console.log(messageIds.data.messages);
-
-      for (let index = 0; index < messageIds.data.messages.length; index++) {
-        let message = await gmail.users.messages.get({
-          userId: 'me',
-          id: messageIds.data.messages[index].id
-        });
-        console.log(message.data.snippet);
-        let orderId = message.data.snippet.slice(173, 189);
-        orderArray.push({orderId: orderId, messageId: messageIds.data.messages[index].id});
+      console.log('BadNews Messages: ', messageIds.data);
+      if (messageIds.data.resultSizeEstimate !== 0) {
+        console.log('running')
+        for (let index = 0; index < messageIds.data.messages.length; index++) {
+          let message = await gmail.users.messages.get({
+            userId: 'me',
+            id: messageIds.data.messages[index].id
+          });
+          console.log('bad news snippet', message.data.snippet);
+          let orderId = message.data.snippet.slice(173, 189);
+          orderArray.push({orderId: orderId, messageId: messageIds.data.messages[index].id});
+        }
+  
+        console.log('order array ', orderArray);
       }
-
-      console.log(orderArray);
+      
       return resolve();
     }
   )
@@ -268,7 +271,7 @@ const loginAliExpress = async (resolve) => {
   }
 
   let signInText = await aliPage.evaluate(() => document.querySelector('.flyout-welcome-text').innerText);
-  console.log(signInText);
+  console.log('signinText',signInText);
   if (signInText == 'Welcome to AliExpress.com') {
       // Wait 5 Seconds
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -314,22 +317,24 @@ const checkNewTrackingEmails = (resolve) => {
           maxResults: 30
       });
   
-      console.log(messageIds.data.messages);
-
-      for (email of messageIds.data.messages) {
-        let message = await gmail.users.messages.get({
-          userId: 'me',
-          id: email.id
-        });
-        //console.log(message.data.snippet);
-        let orderId = message.data.snippet.slice(135, 151);
-        //console.log(orderId);
-        recentlyShippedOrders.push({
-          orderId: orderId,
-          messageId: email.id
-        })
+      console.log('tracking emails',messageIds.data.messages);
+      if (messageIds.data.messages !== undefined) {
+        console.log('ran')
+        for (email of messageIds.data.messages) {
+          let message = await gmail.users.messages.get({
+            userId: 'me',
+            id: email.id
+          });
+          //console.log(message.data.snippet);
+          let orderId = message.data.snippet.slice(135, 151);
+          //console.log(orderId);
+          recentlyShippedOrders.push({
+            orderId: orderId,
+            messageId: email.id
+          })
+        }
+        console.log('recently shipped orders', recentlyShippedOrders);
       }
-      console.log(recentlyShippedOrders);
       return resolve();
     }
   )
@@ -357,7 +362,7 @@ const getTrackingNumber = async (resolve) => {
   
       }
     }
-    console.log(trackingStatus);
+    console.log('tracking status',trackingStatus);
 
     // Check Tracking #
     let trackingNumber = '';
@@ -400,7 +405,7 @@ const getTrackingNumber = async (resolve) => {
     }
     
   }
-  console.log(recentlyShippedOrders);
+  console.log('recent shipped',recentlyShippedOrders);
   return resolve();
 };
 
@@ -462,16 +467,16 @@ const selectShippingCompany = async (resolve, order) => {
   
     await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
     await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
-    if (order.trackingDetails.shippingCompany == 'e邮宝' || order.trackingDetails.shippingCompany.includes('AliExpress')) {
-      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '-1')
-    } else if (order.trackingDetails.shippingCompany == 'FEDEX_US') {
+    if (order.trackingDetails.shippingCompany == 'FEDEX_US') {
       await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '3')
-    }
-    await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
-    await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    if (order.trackingDetails.shippingCompany == 'e邮宝' || order.trackingDetails.shippingCompany.includes('AliExpress')) {
-      // Enter Shipping company name
+    } else {
+      // Select Other
+      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '-1')
+      // Wait for other input and click
+      await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
+      await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
+      // Enter China EMS in other
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-5.pr-xl-0.mb-xs-2.mb-xl-0 > div.mt-xs-2 > input', 'China EMS', {delay: 100});
     }
     
@@ -501,7 +506,7 @@ const addTrackingNumbers = async (resolve) => {
   }
 
   for(order of recentlyShippedOrders) {
-    console.log(typeof order.trackingDetails);
+    console.log('type of order: ',typeof order.trackingDetails);
     if (typeof order.trackingDetails == "object") {
       await page.evaluate(() => document.querySelector('#orders-header-search-input').value = '');
       await page.type('#orders-header-search-input', order.trackingDetails.customer, {delay: 100});
@@ -510,11 +515,11 @@ const addTrackingNumbers = async (resolve) => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       let customerName = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(4) > div > div > div > div > span').innerText);
       customerName = customerName.toUpperCase();
-      console.log(customerName);
+      console.log('customer name', customerName);
       if (customerName == order.trackingDetails.customer) {
         // Found correct customer
         let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
-        console.log(shipStatus);
+        console.log('ship status',shipStatus);
         let trackingFlag = false;
         // Add First Trakcing Number
         if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
@@ -574,8 +579,8 @@ const addTrackingNumbers = async (resolve) => {
   return resolve();
 }
 
-// Add Product to Cart ono Aliexpress
-const addProductToCart = async (resolve, href, attribute) => {
+// Add Product to Cart on Aliexpress
+const addProductToCart = async (resolve, href, attribute, shipsFrom) => {
   // Login to AliExpress
   await new Promise(resolve => loginAliExpress(resolve));
   // Open New Product Page
@@ -588,9 +593,17 @@ const addProductToCart = async (resolve, href, attribute) => {
   // Select attribute
   console.log('attribute: ',attribute)
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (attribute != 0) {
+  if (attribute) {
     await productPage.click('.sku-property > .sku-property-list > .sku-property-item:nth-child('+attribute+')')
   }
+
+  // Select Ships from if Applicable
+  console.log('ships from: ',shipsFrom)
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  if (shipsFrom) {
+    await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child(2) > ul > li:nth-child('+shipsFrom+')');
+  }
+  
   // Click Add to cart button
   await new Promise(resolve => setTimeout(resolve, 1000));
   await productPage.click('.product-main-wrap > .product-info > .product-action > .addcart-wrap > .next-btn')
@@ -610,24 +623,44 @@ const unabbreviateState = (state) => {
   }
 }
 
+const addPrivateMessage = async (resolve, msg) => {
+  // Click add private note
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    await page.click('div > .col-group > .col-xs-12 > .btn:nth-child(1) > .text-body-smaller');
+  } catch {
+    await page.click('#order-detail-container > div.col-group.mb-xs-4 > div > div > div > div > div.flag-body.vertical-align-top > div.mt-xs-1 > div > div > button');
+
+  }
+  // Enter Error Note
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await page.type('.flag #private_note_textarea', msg);
+  // Click Save Note
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await page.click('.flag-body > div > .mt-xs-2 > .text-right > .btn-orange');
+  return resolve();
+}
+
 // Check out on Ali
 const checkout = async (resolve) => {
   let checkoutPage = await browser.newPage();
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
   await Promise.all([
     checkoutPage.waitForNavigation(),
     checkoutPage.goto('https://shoppingcart.aliexpress.com/shopcart/shopcartDetail.htm')  
   ]);
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 2000));
   // Select all products in cart
   await checkoutPage.click('.captain > .select-all-container > .next-checkbox-wrapper > .next-checkbox > .next-checkbox-input');
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  
   // click place order and wait for billing page
+  await new Promise(resolve => setTimeout(resolve, 2000));
   await Promise.all([
     checkoutPage.waitForNavigation(),
-    await checkoutPage.click('.next-loading > .next-loading-wrap > .order-btn-holder > #checkout-button > .click-mask') 
+    await checkoutPage.click('#checkout-button') 
   ]);
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 2000));
   // Save address details from auto fill helper
   let name = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #name').innerText);
   let firstLine = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #firstLine').innerText);
@@ -637,102 +670,171 @@ const checkout = async (resolve) => {
   state = unabbreviateState(state);
   let zip = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #zip').innerText);
   let country = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #country').innerText);
-  // Click add new address
-  await checkoutPage.click('.card-container > .shipping-info > .custom-collapse > .address-list-opt > .next-btn')
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  // Enter Name
-  await checkoutPage.type('.group-content #contactPerson', name, { delay: 100 });
-  await new Promise(resolve => setTimeout(resolve, 500));
-  await checkoutPage.type('.group-content #address', firstLine, { delay: 100 });
-  await new Promise(resolve => setTimeout(resolve, 500));
-  await checkoutPage.type('.group-content #address2', secondLine, { delay: 100 });
-  await new Promise(resolve => setTimeout(resolve, 2500));
-  // Select Country
-  await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
-  await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
-  console.log('countries:', countries.length);
-
-  for (let index = 237; index >= 1; index--) {
-    let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
-    
-    if (innerText.toUpperCase() == country) {
-      console.log('index of country:', index);
-      await checkoutPage.click('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name');
-      break;
-    }
-  }
-
-  await new Promise(resolve => setTimeout(resolve, 10000));
-  // Select State
-  await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
-  await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
-
-  const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
-  console.log('states:', states.length);
-
-  for (let index = 1; index < states.length; index++) {
-    let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
-    console.log(innerText.toUpperCase(), 'state', state.toUpperCase())
-    if (innerText.toUpperCase() == state.toUpperCase()) {
-      console.log('index of state:', index);
-      await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
-      break;
-    }
-  }
-
-  await new Promise(resolve => setTimeout(resolve, 10000));
-  // Select City
-  await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
-
-
-  const cities = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
-  console.log('cities:', cities.length);
-
-  for (let index = 1; index < cities.length; index++) {
-    let innerText = await checkoutPage.evaluate((index) => document.querySelector('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+index+')').innerText, index);
-    console.log(innerText.toUpperCase(), 'state', city.toUpperCase());
-    if (innerText.toUpperCase() == city.toUpperCase()) {
-      console.log('index of city:', index);
-      await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
-      break;
-    }
-  }
-
-  // Enter Zip Code
-  await new Promise(resolve => setTimeout(resolve, 500));
-  await checkoutPage.type('.group-content #zip', zip, { delay: 100 });
-
-  // Enter Phone #
-  await new Promise(resolve => setTimeout(resolve, 500));
-  await checkoutPage.type('.group-content #mobileNo', '5108584530', { delay: 100 });
-
-  // Click Confirm button
-  await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary')
+  // Click edit address button
+  // await checkoutPage.click('.card-container > .shipping-info > .custom-collapse > .address-list-opt > .next-btn')
+  // await checkoutPage.waitForSelector('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
+  // await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
   
-  // Select Shipping, Need fix for multiple products
-  await new Promise(resolve => setTimeout(resolve, 500));
-  await checkoutPage.click('.shopping-cart-product > .product-container > .product-field > .product-logistics > .logistics-company');
+  // await checkoutPage.waitForSelector('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
+  // await checkoutPage.click('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
+  
+  // // Enter Name
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // await checkoutPage.click('.group-content #contactPerson')
 
-  const shippingCos = await checkoutPage.$$('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div');
-  console.log('cities:', shippingCos.length);
+  // for (let index = 0; index < 40; index++) {
+  //   await checkoutPage.keyboard.press('Backspace');
+  // }
+  // await checkoutPage.type('.group-content #contactPerson', name, { delay: 100 });
+  // await new Promise(resolve => setTimeout(resolve, 500));
+  // await checkoutPage.click('.group-content #address')
+  // // Enter Address
+  // for (let index = 0; index < 40; index++) {
+  //   await checkoutPage.keyboard.press('Backspace');
+  // }
+  // await checkoutPage.type('.group-content #address', firstLine, { delay: 100 });
+  // await new Promise(resolve => setTimeout(resolve, 500));
+  // await checkoutPage.click('.group-content #address2')
 
-  for (let index = 2; index < shippingCos.length; index++) {
-    let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
-    console.log('shippingCos:', innerText, index);
-    if (innerText == 'AliExpress Standard Shipping') {
-      await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
-      break;
+  // for (let index = 0; index < 30; index++) {
+  //   await checkoutPage.keyboard.press('Backspace');
+  // }
+  // await checkoutPage.type('.group-content #address2', secondLine, { delay: 100 });
+
+  // // Enter Zip Code
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // await checkoutPage.click('.group-content #zip')
+
+  // for (let index = 0; index < 15; index++) {
+  //   await checkoutPage.keyboard.press('Backspace');
+  // }
+  // await checkoutPage.type('.group-content #zip', zip, { delay: 100 });
+
+  // // Select Country
+  // await new Promise(resolve => setTimeout(resolve, 2500));
+  // await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
+  // await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
+  // console.log('countries:', countries.length);
+
+  // for (let index = 237; index >= 1; index--) {
+  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
+    
+  //   if (innerText.toUpperCase() == country) {
+  //     console.log('index of country:', index);
+  //     await checkoutPage.click('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name');
+  //     break;
+  //   }
+  // }
+
+  // await new Promise(resolve => setTimeout(resolve, 8000));
+  // // Select State
+  // await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
+  // await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
+
+  // const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
+  // console.log('states:', states.length);
+
+  // for (let index = 1; index < states.length; index++) {
+  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
+  //   console.log(innerText.toUpperCase(), 'state', state.toUpperCase())
+  //   if (innerText.toUpperCase() == state.toUpperCase()) {
+  //     console.log('index of state:', index);
+  //     await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
+  //     break;
+  //   }
+  // }
+
+  // await new Promise(resolve => setTimeout(resolve, 5000));
+  // // Select City
+  // await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
+
+  // const cities = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
+  // console.log('cities:', cities.length);
+
+  // for (let index = 1; index < cities.length; index++) {
+  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+index+')').innerText, index);
+  //   console.log(innerText.toUpperCase(), 'state', city.toUpperCase());
+  //   if (innerText.toUpperCase() == city.toUpperCase()) {
+  //     console.log('index of city:', index);
+  //     await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
+  //     break;
+  //   }
+  // }
+
+  // // Enter Phone #
+  // await new Promise(resolve => setTimeout(resolve, 500));
+  // // await checkoutPage.type('.group-content #mobileNo', '5108584530', { delay: 100 });
+
+  // // Click Confirm button
+  // await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary')
+  
+  // Select Shipping, TODO: Need fix for multiple products and Choose EPacket first before AliExpress
+  const changeShippingCount = await checkoutPage.$$('.logistics-company');
+  console.log('# of products in cart:', changeShippingCount.length);
+  
+  for (let index = 2; index < changeShippingCount.length + 2; index++) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await checkoutPage.click('#main > div.card-container.orders-list > div > div > div > div > div:nth-child('+index+') > div > div.product-field.product-main > div.product-logistics > span.logistics-company');
+    
+    // await checkoutPage.click('.shopping-cart-product > .product-container > .product-field > .product-logistics > .logistics-company');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const shippingCos = await checkoutPage.$$('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div');
+
+    console.log('shippingCompanieslength:', shippingCos.length);
+
+    let closeShippingPopup = async (resolve) => {
+      // Close Shipping Popup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await checkoutPage.click('.next-overlay-wrapper > .next-overlay-inner > .next-dialog > .next-dialog-footer > .next-btn')
+      return resolve();
+    }
+    let epacket = false;
+    for (let index = 2; index < shippingCos.length; index++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('shippingCos:', innerText, index);
+      if (innerText == 'ePacket') {
+        await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
+        await new Promise(resolve => closeShippingPopup(resolve));
+        epacket = true;
+        break;
+      }
+    }
+    let ali = false;
+    if (!epacket) {
+      for (let index = 2; index < shippingCos.length; index++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
+        console.log('shippingCos:', innerText, index);
+        if (innerText == 'AliExpress Standard Shipping') {
+          await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
+          await new Promise(resolve => closeShippingPopup(resolve));
+          ali = true;
+          break;
+        }
+      }
+    }
+    
+    if (!ali && !epacket) {
+      for (let index = 2; index < shippingCos.length; index++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
+        console.log('shippingCos:', innerText, index);
+         if (innerText == 'FEDEX') {
+          await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
+          await new Promise(resolve => closeShippingPopup(resolve));
+          break;
+        }
+      }
     }
   }
-  // Close Shipping Popup
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  await checkoutPage.click('.next-overlay-wrapper > .next-overlay-inner > .next-dialog > .next-dialog-footer > .next-btn')
-  await new Promise(resolve => setTimeout(resolve, 500));
 
   // Add Dropshipping note
+  await new Promise(resolve => setTimeout(resolve, 500));
   await checkoutPage.click('.product-container > .product-field > .message-container > .seller-message > .seller-message-title')
   await new Promise(resolve => setTimeout(resolve, 500));
   await checkoutPage.click('body #pasteMessage')
@@ -753,26 +855,27 @@ const checkout = async (resolve) => {
   console.log('successMessage: ', successMessage);
 
   if (successMessage == 'Payment Successful') {
-    // Return to etsy
+    // Return to etsy TODO: ADD note of order number
     checkoutPage.close();
     return resolve();
   } else {
+    
     // Pop back into etsy and add note that it failed.
     await new Promise(resolve => setTimeout(resolve, 1000));
     const etsyTab = (await browser.pages())[1];
     // Click add private note
     await new Promise(resolve => setTimeout(resolve, 500));
-    await etsyTab.click('div > .col-group > .col-xs-12 > .btn:nth-child(1) > .text-body-smaller');
-    // Enter Error Note
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await etsyTab.type('.flag #private_note_textarea', 'Error on Automation Checkout');
-    // Click Save Note
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await etsyTab.click('.flag-body > div > .mt-xs-2 > .text-right > .btn-orange');
+    await new Promise(resolve => addPrivateMessage(resolve, 'Error on Automation Checkout'));
     // Close Checkout Page
     await checkoutPage.close();
     return resolve();
   }
+}
+
+const removeSpecialCharacters = (str) => {
+  let string = str.replace(/[^a-zA-Z0-9 ]/g, '');
+  string = string.toUpperCase();
+  return string;
 }
 
 // Start processing Automated orders on Etsy
@@ -827,6 +930,11 @@ const processOrders = async (resolve) => {
 
       // Handle if is Ali Product
       if (isAliProduct) {
+        // Get Customer Name
+        let customerName = await page.evaluate((i) => document.querySelector('#order-detail-container > div:nth-child(5) > div > div > div > div > div > div.col-xs-12.col-md-4 > div > div > p > span.name').innerHTML);
+        // Add Product Note of Customers Name
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => addPrivateMessage(resolve, removeSpecialCharacters(customerName)));
         cart = true;
         // Click Save the Address
         await page.click('.col-group #saveAddress')
@@ -834,7 +942,8 @@ const processOrders = async (resolve) => {
         // Get Product URL
         let href = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') > a').href, i);
         await new Promise(resolve => setTimeout(resolve, 500));
-        attribute = true;
+        let attribute = true;
+        let shipsFrom = true;
         // Check if product has attribute
         try {
           await page.waitForSelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #productAttr', {
@@ -844,17 +953,34 @@ const processOrders = async (resolve) => {
           if (e instanceof puppeteer.errors.TimeoutError) {
             // No Attribute
             attribute = false;
+            shipsFrom = false
+          }
+        }
+        // Check if product has shipsFrom
+        try {
+          await page.waitForSelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #shipsFrom', {
+            timeout: 3000
+          });
+        } catch (e) {
+          if (e instanceof puppeteer.errors.TimeoutError) {
+            // No Attribute
+            shipsFrom = false
           }
         }
         if (attribute) {
           attribute = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #productAttr').innerText, i);
         }
+
+        if (shipsFrom) {
+          shipsFrom = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #shipsFrom').innerText, i);
+        }
         
         await new Promise(resolve => setTimeout(resolve, 500));
-        console.log(href)
-        console.log(attribute)
+        console.log('product link: ',href)
+        console.log('attribute: ',attribute)
+        console.log('ships from: ',shipsFrom)
         // Add Product to Cart on Ali
-        await new Promise(resolve => addProductToCart(resolve, href, attribute));
+        await new Promise(resolve => addProductToCart(resolve, href, attribute, shipsFrom));
       }
     }
     console.log('cart:', cart);
@@ -904,37 +1030,38 @@ const initializeWorkFlow = async () => {
   // open new page in browser
   page = await browser.newPage();
   // Get gmail creds
-  // await new Promise(resolve => getGmailCreds(resolve));
-  // Get Other, ali and etsy creds
+  await new Promise(resolve => getGmailCreds(resolve));
+  // // Get Other, ali and etsy creds
   await new Promise(resolve => getOtherCreds(resolve));
-  // // Check Email for Bad News Messages
-  // await new Promise(resolve => checkEmail(resolve));
-  // // Login to AliExpress
-  // await new Promise(resolve => loginAliExpress(resolve));
-  // // Wait
-  // await new Promise(resolve => setTimeout(resolve, 1000));
-  // // Check AliExpress to see if orders have been delivered
-  // await new Promise(resolve => checkDelivery(resolve));
-  // // Save delivered and undelivered data in files for later use
-  // await new Promise(resolve => saveFile(resolve, undeliveredOrders, 'undelivered.json'));
-  // await new Promise(resolve => saveFile(resolve, deliveredOrders, 'delivered.json'));
-  
-  // // Check new tracking # emails
-  // await new Promise(resolve => checkNewTrackingEmails(resolve));
-  // // Login to AliExpress
-  // await new Promise(resolve => loginAliExpress(resolve));
-  // // Get Tracking number
-  // await new Promise(resolve => getTrackingNumber(resolve));
-  // // Save Tracking Number Files
-  // await new Promise(resolve => saveFile(resolve, recentlyShippedOrders, 'tracking.json'));
-  // Login to Etsy
-  await new Promise(resolve => loginEtsy(resolve));
-  // // Add Tracking Numbers in Etsy
-  // await new Promise(resolve => addTrackingNumbers(resolve));
-  // // Mark bad news and tracking emails as read
-  // await new Promise(resolve => markEmailAsRead(resolve));
   // Start processing orders
   await new Promise(resolve => processOrders(resolve));
+  // Check Email for Bad News Messages
+  await new Promise(resolve => checkEmail(resolve));
+  // Login to AliExpress
+  await new Promise(resolve => loginAliExpress(resolve));
+  // Wait
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Check AliExpress to see if orders have been delivered
+  await new Promise(resolve => checkDelivery(resolve));
+  // Save delivered and undelivered data in files for later use
+  await new Promise(resolve => saveFile(resolve, undeliveredOrders, 'undelivered.json'));
+  await new Promise(resolve => saveFile(resolve, deliveredOrders, 'delivered.json'));
+  
+  // Check new tracking # emails
+  await new Promise(resolve => checkNewTrackingEmails(resolve));
+  // Login to AliExpress
+  await new Promise(resolve => loginAliExpress(resolve));
+  // Get Tracking number
+  await new Promise(resolve => getTrackingNumber(resolve));
+  // Save Tracking Number Files
+  await new Promise(resolve => saveFile(resolve, recentlyShippedOrders, 'tracking.json'));
+  // Login to Etsy
+  await new Promise(resolve => loginEtsy(resolve));
+  // Add Tracking Numbers in Etsy
+  await new Promise(resolve => addTrackingNumbers(resolve));
+  // Mark bad news and tracking emails as read
+  await new Promise(resolve => markEmailAsRead(resolve));
+  
   // Finish
   console.log('done');
   //openDisputes();
