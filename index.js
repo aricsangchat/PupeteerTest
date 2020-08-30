@@ -513,66 +513,79 @@ const addTrackingNumbers = async (resolve) => {
       await new Promise(resolve => setTimeout(resolve, 500));
       await page.keyboard.press('Enter');
       await new Promise(resolve => setTimeout(resolve, 2000));
-      let customerName = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(4) > div > div > div > div > span').innerText);
-      customerName = customerName.toUpperCase();
-      console.log('customer name', customerName);
-      if (customerName == order.trackingDetails.customer) {
-        // Found correct customer
-        let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
-        console.log('ship status',shipStatus);
-        let trackingFlag = false;
-        // Add First Trakcing Number
-        if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
-          // Add tracking # for order that has no tracking already
-          console.log('add tracking')
-          // Click Update Progress Icon
-          await page.click('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) button');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) > div > div > div > ul > li.pl-xs-2.pr-xs-2.bt-xs-1.pt-xs-2.mt-xs-2 a');
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          // Enter Tracking Number
-          await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          // Select Shipping Company
-          await new Promise(resolve => selectShippingCompany(resolve, order));
-        }
-        // Check if tracking # already exists
-        if (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered')) {
-          const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
-          console.log(trackingNumberHandle.length);
-          for (let index = 1; index <= trackingNumberHandle.length; index++) {
-            console.log('index', index)
-            let selector = '#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div > div:nth-child('+index+') > div > span > div.display-inline-block.shipping-description-small > button';
-            let _trackingNumber = await page.evaluate((selector) => {
-              console.log('selector',selector);
-              return document.querySelector(selector).innerText
-            }, selector);
-            console.log("_trackNumber",_trackingNumber);
-            if (_trackingNumber == order.trackingDetails.number) {
-              // do nothing
-              trackingFlag = true;
+      let customerFound = true;
+      try {
+        await page.waitForSelector('#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(4) > div > div > div > div > span', {
+          timeout: 5000
+        })
+        
+      } catch(e){
+        customerFound = false;
+      }
+
+      if (customerFound) {
+        let customerName = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(4) > div > div > div > div > span').innerText);
+        customerName = customerName.toUpperCase();
+        console.log('customer name', customerName);
+        if (customerName == order.trackingDetails.customer) {
+          // Found correct customer
+          let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
+          console.log('ship status',shipStatus);
+          let trackingFlag = false;
+          // Add First Trakcing Number
+          if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
+            // Add tracking # for order that has no tracking already
+            console.log('add tracking')
+            // Click Update Progress Icon
+            await page.click('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) button');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) > div > div > div > ul > li.pl-xs-2.pr-xs-2.bt-xs-1.pt-xs-2.mt-xs-2 a');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Enter Tracking Number
+            await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Select Shipping Company
+            await new Promise(resolve => selectShippingCompany(resolve, order));
+          }
+          // Check if tracking # already exists
+          if (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered')) {
+            const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
+            console.log(trackingNumberHandle.length);
+            for (let index = 1; index <= trackingNumberHandle.length; index++) {
+              console.log('index', index)
+              let selector = '#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div > div:nth-child('+index+') > div > span > div.display-inline-block.shipping-description-small > button';
+              let _trackingNumber = await page.evaluate((selector) => {
+                console.log('selector',selector);
+                return document.querySelector(selector).innerText
+              }, selector);
+              console.log("_trackNumber",_trackingNumber);
+              if (_trackingNumber == order.trackingDetails.number) {
+                // do nothing
+                trackingFlag = true;
+              }
             }
           }
+          // If tracking does not already exist, add it
+          if (trackingFlag == false && (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered'))) {
+            // Add second tracking # to order
+            console.log('add second tracking');
+            // Click Options toggle
+            await page.click('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) button');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Click Add tracking link
+            await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) > div > div > div > ul > li:nth-child(2) span');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Enter Tracking Number
+            await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
+            
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Select Shipping Company
+            await new Promise(resolve => selectShippingCompany(resolve, order));
+          }
+          console.log('trackingflag', trackingFlag, shipStatus);
         }
-        // If tracking does not already exist, add it
-        if (trackingFlag == false && (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered'))) {
-          // Add second tracking # to order
-          console.log('add second tracking');
-          // Click Options toggle
-          await page.click('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) button');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          // Click Add tracking link
-          await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) > div > div > div > ul > li:nth-child(2) span');
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          // Enter Tracking Number
-          await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
-          
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          // Select Shipping Company
-          await new Promise(resolve => selectShippingCompany(resolve, order));
-        }
-        console.log('trackingflag', trackingFlag, shipStatus);
       }
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
@@ -593,7 +606,7 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom) => {
   // Select attribute
   console.log('attribute: ',attribute)
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (attribute) {
+  if (attribute !== '0') {
     await productPage.click('.sku-property > .sku-property-list > .sku-property-item:nth-child('+attribute+')')
   }
 
@@ -670,106 +683,115 @@ const checkout = async (resolve) => {
   state = unabbreviateState(state);
   let zip = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #zip').innerText);
   let country = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #country').innerText);
+  // Click on Address
+  await checkoutPage.waitForSelector('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
+  await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
   // Click edit address button
-  // await checkoutPage.click('.card-container > .shipping-info > .custom-collapse > .address-list-opt > .next-btn')
-  // await checkoutPage.waitForSelector('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
-  // await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  await checkoutPage.click('#main > div:nth-child(1) > div > div > div:nth-child(4) > div > div.next-radio-group.next-radio-group-hoz > div > label > span.next-radio-label > div > div.address-opt > button:nth-child(1)')
   
   // await checkoutPage.waitForSelector('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   // await checkoutPage.click('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   
-  // // Enter Name
-  // await new Promise(resolve => setTimeout(resolve, 1000));
-  // await checkoutPage.click('.group-content #contactPerson')
+  // Enter Name
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await checkoutPage.click('.group-content #contactPerson')
 
-  // for (let index = 0; index < 40; index++) {
-  //   await checkoutPage.keyboard.press('Backspace');
-  // }
-  // await checkoutPage.type('.group-content #contactPerson', name, { delay: 100 });
-  // await new Promise(resolve => setTimeout(resolve, 500));
-  // await checkoutPage.click('.group-content #address')
-  // // Enter Address
-  // for (let index = 0; index < 40; index++) {
-  //   await checkoutPage.keyboard.press('Backspace');
-  // }
-  // await checkoutPage.type('.group-content #address', firstLine, { delay: 100 });
-  // await new Promise(resolve => setTimeout(resolve, 500));
-  // await checkoutPage.click('.group-content #address2')
+  for (let index = 0; index < 40; index++) {
+    await checkoutPage.keyboard.press('Backspace');
+  }
+  await checkoutPage.type('.group-content #contactPerson', name, { delay: 100 });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.click('.group-content #address')
+  // Enter Address
+  for (let index = 0; index < 40; index++) {
+    await checkoutPage.keyboard.press('Backspace');
+  }
+  await checkoutPage.type('.group-content #address', firstLine, { delay: 100 });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.click('.group-content #address2')
 
-  // for (let index = 0; index < 30; index++) {
-  //   await checkoutPage.keyboard.press('Backspace');
-  // }
-  // await checkoutPage.type('.group-content #address2', secondLine, { delay: 100 });
+  for (let index = 0; index < 30; index++) {
+    await checkoutPage.keyboard.press('Backspace');
+  }
+  await checkoutPage.type('.group-content #address2', secondLine, { delay: 100 });
 
-  // // Enter Zip Code
-  // await new Promise(resolve => setTimeout(resolve, 1000));
-  // await checkoutPage.click('.group-content #zip')
+  // Enter Zip Code
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await checkoutPage.click('.group-content #zip')
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  for (let index = 0; index < 15; index++) {
+    await checkoutPage.keyboard.press('Backspace');
+  }
+  await checkoutPage.type('.group-content #zip', zip, { delay: 100 });
 
-  // for (let index = 0; index < 15; index++) {
-  //   await checkoutPage.keyboard.press('Backspace');
-  // }
-  // await checkoutPage.type('.group-content #zip', zip, { delay: 100 });
+  // Select Country
+  await new Promise(resolve => setTimeout(resolve, 2500));
+  await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
+  await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
-  // // Select Country
-  // await new Promise(resolve => setTimeout(resolve, 2500));
-  // await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
-  // await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
-  // await new Promise(resolve => setTimeout(resolve, 1000));
+  const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
+  console.log('countries:', countries.length);
 
-  // const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
-  // console.log('countries:', countries.length);
-
-  // for (let index = 237; index >= 1; index--) {
-  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
+  for (let index = 237; index >= 1; index--) {
+    let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
     
-  //   if (innerText.toUpperCase() == country) {
-  //     console.log('index of country:', index);
-  //     await checkoutPage.click('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name');
-  //     break;
-  //   }
-  // }
+    if (innerText.toUpperCase() == country) {
+      console.log('index of country:', index);
+      await checkoutPage.click('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name');
+      break;
+    }
+  }
 
-  // await new Promise(resolve => setTimeout(resolve, 8000));
-  // // Select State
-  // await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
-  // await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
+  await new Promise(resolve => setTimeout(resolve, 8000));
+  // Select State
+  await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
+  await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
 
-  // const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
-  // console.log('states:', states.length);
+  const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
+  console.log('states:', states.length);
 
-  // for (let index = 1; index < states.length; index++) {
-  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
-  //   console.log(innerText.toUpperCase(), 'state', state.toUpperCase())
-  //   if (innerText.toUpperCase() == state.toUpperCase()) {
-  //     console.log('index of state:', index);
-  //     await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
-  //     break;
-  //   }
-  // }
+  for (let index = 1; index < states.length; index++) {
+    let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
+    console.log(innerText.toUpperCase(), 'state', state.toUpperCase())
+    if (innerText.toUpperCase() == state.toUpperCase()) {
+      console.log('index of state:', index);
+      await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
+      break;
+    }
+  }
 
-  // await new Promise(resolve => setTimeout(resolve, 5000));
-  // // Select City
-  // await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Select City
+  await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
 
-  // const cities = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
-  // console.log('cities:', cities.length);
+  const cities = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
+  console.log('cities:', cities.length);
 
-  // for (let index = 1; index < cities.length; index++) {
-  //   let innerText = await checkoutPage.evaluate((index) => document.querySelector('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+index+')').innerText, index);
-  //   console.log(innerText.toUpperCase(), 'state', city.toUpperCase());
-  //   if (innerText.toUpperCase() == city.toUpperCase()) {
-  //     console.log('index of city:', index);
-  //     await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
-  //     break;
-  //   }
-  // }
+  for (let index = 1; index < cities.length; index++) {
+    let innerText = await checkoutPage.evaluate((index) => document.querySelector('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+index+')').innerText, index);
+    console.log(innerText.toUpperCase(), 'state', city.toUpperCase());
+    if (innerText.toUpperCase() == city.toUpperCase()) {
+      console.log('index of city:', index);
+      await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
+      break;
+    }
+  }
 
-  // // Enter Phone #
-  // await new Promise(resolve => setTimeout(resolve, 500));
-  // // await checkoutPage.type('.group-content #mobileNo', '5108584530', { delay: 100 });
+  // Enter Phone #
+  await new Promise(resolve => setTimeout(resolve, 500));
+  // await checkoutPage.type('.group-content #mobileNo', '5108584530', { delay: 100 });
 
-  // // Click Confirm button
-  // await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary')
+  // Click Confirm button
+  await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary')
   
   // Select Shipping, TODO: Need fix for multiple products and Choose EPacket first before AliExpress
   const changeShippingCount = await checkoutPage.$$('.logistics-company');
@@ -937,6 +959,7 @@ const processOrders = async (resolve) => {
         await new Promise(resolve => addPrivateMessage(resolve, removeSpecialCharacters(customerName)));
         cart = true;
         // Click Save the Address
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await page.click('.col-group #saveAddress')
         await new Promise(resolve => setTimeout(resolve, 500));
         // Get Product URL

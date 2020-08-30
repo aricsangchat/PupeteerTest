@@ -1,15 +1,1 @@
-{
-    "batchTimeStamp": 1598619425389,
-    "data": [
-        {
-            "orderId": "8015023889504058",
-            "messageId": "17433e3567f1c2ad",
-            "disputeStatus": false
-        },
-        {
-            "orderId": "8015041659664058",
-            "messageId": "174335a1a37d139c",
-            "disputeStatus": false
-        }
-    ]
-}
+{"batchTimeStamp":1598786963959,"data":[{"orderId":"8015023889504058","messageId":"1743e55aead87e8a","disputeStatus":true},{"orderId":"8015041659664058","messageId":"1743da6bf7b74b0f","disputeStatus":true}]}
