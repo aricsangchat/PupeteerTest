@@ -102,20 +102,20 @@ const checkEmail = async (resolve) => {
           labelIds: ['UNREAD']
       }).catch(e => console.log(e))
   
-      console.log('BadNews Messages: ', messageIds.data);
+      console.log('Bad News Email Array: ', messageIds.data.messages);
       if (messageIds.data.resultSizeEstimate !== 0) {
-        console.log('running')
+        // console.log('running')
         for (let index = 0; index < messageIds.data.messages.length; index++) {
           let message = await gmail.users.messages.get({
             userId: 'me',
             id: messageIds.data.messages[index].id
           });
-          console.log('bad news snippet', message.data.snippet);
+          //console.log('bad news snippet', message.data.snippet);
           let orderId = message.data.snippet.slice(173, 189);
           orderArray.push({orderId: orderId, messageId: messageIds.data.messages[index].id});
         }
   
-        console.log('order array ', orderArray);
+        console.log('Order Id Array ', orderArray);
       }
       
       return resolve();
@@ -271,7 +271,7 @@ const loginAliExpress = async (resolve) => {
   }
 
   let signInText = await aliPage.evaluate(() => document.querySelector('.flyout-welcome-text').innerText);
-  console.log('signinText',signInText);
+  console.log('Signin Text: ', signInText);
   if (signInText == 'Welcome to AliExpress.com') {
       // Wait 5 Seconds
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -317,9 +317,9 @@ const checkNewTrackingEmails = (resolve) => {
           maxResults: 30
       });
   
-      console.log('tracking emails',messageIds.data.messages);
-      if (messageIds.data.messages !== undefined) {
-        console.log('ran')
+      console.log('Tracking Emails Array',messageIds.data.messages);
+      if (messageIds.data.resultSizeEstimate !== 0) {
+        // console.log('ran')
         for (email of messageIds.data.messages) {
           let message = await gmail.users.messages.get({
             userId: 'me',
@@ -604,16 +604,16 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom) => {
     productPage.goto(href)  
   ]);
   // Select attribute
-  console.log('attribute: ',attribute)
+  //console.log('attribute: ',attribute)
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (attribute !== '0') {
+  if (attribute !== '0' && attribute !== false) {
     await productPage.click('.sku-property > .sku-property-list > .sku-property-item:nth-child('+attribute+')')
   }
 
   // Select Ships from if Applicable
-  console.log('ships from: ',shipsFrom)
+  //console.log('ships from: ',shipsFrom)
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (shipsFrom) {
+  if (shipsFrom !== '0' && shipsFrom !== false) {
     await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child(2) > ul > li:nth-child('+shipsFrom+')');
   }
   
@@ -701,9 +701,18 @@ const checkout = async (resolve) => {
     await checkoutPage.keyboard.press('Backspace');
   }
   await checkoutPage.type('.group-content #contactPerson', name, { delay: 100 });
+  
+  // Enter Address
   await new Promise(resolve => setTimeout(resolve, 500));
   await checkoutPage.click('.group-content #address')
-  // Enter Address
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await checkoutPage.keyboard.press('ArrowRight');
   for (let index = 0; index < 40; index++) {
     await checkoutPage.keyboard.press('Backspace');
   }
@@ -813,12 +822,13 @@ const checkout = async (resolve) => {
       await checkoutPage.click('.next-overlay-wrapper > .next-overlay-inner > .next-dialog > .next-dialog-footer > .next-btn')
       return resolve();
     }
+    // Check if its Epacket
     let epacket = false;
-    for (let index = 2; index < shippingCos.length; index++) {
+    for (let index = 2; index <= shippingCos.length; index++) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('shippingCos:', innerText, index);
+      console.log('Shipping Company:', innerText, index);
       if (innerText == 'ePacket') {
         await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
         await new Promise(resolve => closeShippingPopup(resolve));
@@ -826,12 +836,13 @@ const checkout = async (resolve) => {
         break;
       }
     }
+    // Check if its Ali Express Standard Shipping
     let ali = false;
     if (!epacket) {
-      for (let index = 2; index < shippingCos.length; index++) {
+      for (let index = 2; index <= shippingCos.length; index++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
-        console.log('shippingCos:', innerText, index);
+        console.log('Shipping Company:', innerText, index);
         if (innerText == 'AliExpress Standard Shipping') {
           await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
           await new Promise(resolve => closeShippingPopup(resolve));
@@ -842,11 +853,11 @@ const checkout = async (resolve) => {
     }
     
     if (!ali && !epacket) {
-      for (let index = 2; index < shippingCos.length; index++) {
+      for (let index = 2; index <= shippingCos.length; index++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div > div > div:nth-child('+index+') > div:nth-child(5) > div').innerText, index);
-        console.log('shippingCos:', innerText, index);
-         if (innerText == 'FEDEX') {
+        console.log('Shipping Company:', innerText, index);
+        if (innerText == 'FEDEX') {
           await checkoutPage.click('.logistics-list > .next-radio-group > .table-tr:nth-child('+index+') > .table-td > .service-name');
           await new Promise(resolve => closeShippingPopup(resolve));
           break;
@@ -992,16 +1003,18 @@ const processOrders = async (resolve) => {
         }
         if (attribute) {
           attribute = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #productAttr').innerText, i);
+          attribute = attribute.split('Attr: ')[1];
         }
 
         if (shipsFrom) {
           shipsFrom = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #shipsFrom').innerText, i);
+          shipsFrom = shipsFrom.split('Ships From: ')[1];
         }
         
         await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('product link: ',href)
-        console.log('attribute: ',attribute)
-        console.log('ships from: ',shipsFrom)
+        console.log('Product link: ',href)
+        console.log('Attribute: ',attribute)
+        console.log('Ships from: ',shipsFrom)
         // Add Product to Cart on Ali
         await new Promise(resolve => addProductToCart(resolve, href, attribute, shipsFrom));
       }
@@ -1056,6 +1069,8 @@ const initializeWorkFlow = async () => {
   await new Promise(resolve => getGmailCreds(resolve));
   // // Get Other, ali and etsy creds
   await new Promise(resolve => getOtherCreds(resolve));
+  // Login to Etsy
+  await new Promise(resolve => loginEtsy(resolve));
   // Start processing orders
   await new Promise(resolve => processOrders(resolve));
   // Check Email for Bad News Messages
