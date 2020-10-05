@@ -145,7 +145,7 @@ const checkDelivery = async (resolve) => {
       }
     }
     // Handle If logic for delivery status
-    if (trackingStatus.includes('Delivery')) {
+    if (trackingStatus.includes('Delivery') || trackingStatus.includes('Delivered')) {
       deliveredOrders.push({
         orderId: order.orderId, 
         messageId: order.messageId,
@@ -171,12 +171,14 @@ const checkDelivery = async (resolve) => {
         undeliveredOrders.push({
           orderId: order.orderId, 
           messageId: order.messageId,
+          Status: trackingStatus,
           disputeStatus: false
          });
       } else {
         undeliveredOrders.push({
           orderId: order.orderId, 
           messageId: order.messageId,
+          Status: trackingStatus,
           disputeStatus: true
          });
       }
@@ -256,22 +258,31 @@ const markEmailAsRead = (resolve) => {
 // Login to AliExpress
 const loginAliExpress = async (resolve) => {
   let aliPage = await browser.newPage();
-  // Sign In
-  await aliPage.goto('https://aliexpress.com');
+  // Go to Ali Express
+  await Promise.all([
+    aliPage.waitForNavigation(),
+    aliPage.goto('https://aliexpress.com')
+  ])
   // Wait 5 Seconds
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 3000));
   // Close Popup
+  let popup = true;
   try {
-      await aliPage.click('.close-layer');
+    await page.waitForSelector('.rax-image', {
+      timeout: 5000
+    })
+    console.log('popup')
   } catch (e) {
-      if (e instanceof puppeteer.errors.TimeoutError) {
-          // Do something if this is a timeout.
-          console.log(e);
-      }
+    console.log('no popup')
+    popup = false;
+  }
+
+  if (popup) {
+    await aliPage.click('.rax-image ');
   }
 
   let signInText = await aliPage.evaluate(() => document.querySelector('.flyout-welcome-text').innerText);
-  console.log('Signin Text: ', signInText);
+  console.log('Signin Text:', signInText);
   if (signInText == 'Welcome to AliExpress.com') {
       // Wait 5 Seconds
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -593,7 +604,7 @@ const addTrackingNumbers = async (resolve) => {
 }
 
 // Add Product to Cart on Aliexpress
-const addProductToCart = async (resolve, href, attribute, shipsFrom) => {
+const addProductToCart = async (resolve, href, attribute, shipsFrom, style) => {
   // Login to AliExpress
   await new Promise(resolve => loginAliExpress(resolve));
   // Open New Product Page
@@ -604,18 +615,45 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom) => {
     productPage.goto(href)  
   ]);
   // Select attribute
-  //console.log('attribute: ',attribute)
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  if (attribute !== '0' && attribute !== false) {
-    await productPage.click('.sku-property > .sku-property-list > .sku-property-item:nth-child('+attribute+')')
+  const skuProperty = await productPage.$$('.sku-wrap > .sku-property');
+  console.log('skuProperty:', skuProperty.length);
+  
+  for (let index = 1; index <= skuProperty.length; index++) {
+    let skuTitle =  await productPage.evaluate((index) => document.querySelector('.sku-wrap > div:nth-child('+index+') .sku-title').innerText, index);
+    console.log(skuTitle);
+    if (skuTitle == 'Color:') {
+      if (style !== '0' && style !== false) {
+        await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+style+')');
+      }
+    } else if (skuTitle == 'Size:' || (skuTitle == 'Emitting Color:' || skuTitle == 'Metal Color:') ) {
+      if (attribute !== '0' && attribute !== false) {
+        await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+attribute+')');
+      }
+    } else if (skuTitle == 'Ships From:') {
+      if (shipsFrom !== '0' && shipsFrom !== false) {
+        await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+shipsFrom+')');
+      }
+    }
   }
 
-  // Select Ships from if Applicable
-  //console.log('ships from: ',shipsFrom)
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  if (shipsFrom !== '0' && shipsFrom !== false) {
-    await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child(2) > ul > li:nth-child('+shipsFrom+')');
-  }
+  // //console.log('attribute: ',attribute)
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // if (attribute !== '0' && attribute !== false) {
+  //   await productPage.click('.sku-property > .sku-property-list > .sku-property-item:nth-child('+attribute+')')
+  // }
+
+  // // Select Ships from if Applicable
+  // //console.log('ships from: ',shipsFrom)
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // if (shipsFrom !== '0' && shipsFrom !== false) {
+  //   await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child(2) > ul > li:nth-child('+shipsFrom+')');
+  // }
+  // // Select Style if Applicable
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // if (style !== '0' && style !== false) {
+  //   await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child(1) > ul > li:nth-child('+style+')');
+    
+  // }
   
   // Click Add to cart button
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -746,11 +784,12 @@ const checkout = async (resolve) => {
   await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
   await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
   await new Promise(resolve => setTimeout(resolve, 1000));
-
+  await checkoutPage.type('#ae-search-select-3', country.charAt(0), { delay: 100 });
+  await new Promise(resolve => setTimeout(resolve, 1000));
   const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
   console.log('countries:', countries.length);
 
-  for (let index = 237; index >= 1; index--) {
+  for (let index = 1; index <= countries.length; index++) {
     let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
     
     if (innerText.toUpperCase() == country) {
@@ -764,11 +803,13 @@ const checkout = async (resolve) => {
   // Select State
   await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
   await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
-
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  await checkoutPage.type('#ae-search-select-3', state.charAt(1), { delay: 100 });
+  await new Promise(resolve => setTimeout(resolve, 1000));
   const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
   console.log('states:', states.length);
 
-  for (let index = 1; index < states.length; index++) {
+  for (let index = 1; index <= states.length; index++) {
     let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
     console.log(innerText.toUpperCase(), 'state', state.toUpperCase())
     if (innerText.toUpperCase() == state.toUpperCase()) {
@@ -781,11 +822,15 @@ const checkout = async (resolve) => {
   await new Promise(resolve => setTimeout(resolve, 5000));
   // Select City
   await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await checkoutPage.type('#ae-search-select-3', city.charAt(0), { delay: 100 });
+  
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   const cities = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
   console.log('cities:', cities.length);
 
-  for (let index = 1; index < cities.length; index++) {
+  for (let index = 1; index <= cities.length; index++) {
     let innerText = await checkoutPage.evaluate((index) => document.querySelector('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+index+')').innerText, index);
     console.log(innerText.toUpperCase(), 'state', city.toUpperCase());
     if (innerText.toUpperCase() == city.toUpperCase()) {
@@ -978,21 +1023,21 @@ const processOrders = async (resolve) => {
         await new Promise(resolve => setTimeout(resolve, 500));
         let attribute = true;
         let shipsFrom = true;
+        let style = true;
         // Check if product has attribute
         try {
-          await page.waitForSelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #productAttr', {
+          await page.waitForSelector('#productAttr', {
             timeout: 3000
           });
         } catch (e) {
           if (e instanceof puppeteer.errors.TimeoutError) {
             // No Attribute
             attribute = false;
-            shipsFrom = false
           }
         }
         // Check if product has shipsFrom
         try {
-          await page.waitForSelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #shipsFrom', {
+          await page.waitForSelector('#shipsFrom', {
             timeout: 3000
           });
         } catch (e) {
@@ -1001,22 +1046,39 @@ const processOrders = async (resolve) => {
             shipsFrom = false
           }
         }
+        // Check if product has style
+        try {
+          await page.waitForSelector('#style', {
+            timeout: 3000
+          });
+        } catch (e) {
+          if (e instanceof puppeteer.errors.TimeoutError) {
+            // No Attribute
+            style = false
+          }
+        }
         if (attribute) {
-          attribute = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #productAttr').innerText, i);
+          attribute = await page.evaluate((i) => document.querySelector('#productAttr').innerText, i);
           attribute = attribute.split('Attr: ')[1];
         }
 
         if (shipsFrom) {
-          shipsFrom = await page.evaluate((i) => document.querySelector('#order-detail-container > div.pt-xs-2.pb-xs-4 > div > div > div > table > tbody > tr:nth-child('+i+') #shipsFrom').innerText, i);
+          shipsFrom = await page.evaluate((i) => document.querySelector('#shipsFrom').innerText, i);
+          
           shipsFrom = shipsFrom.split('Ships From: ')[1];
+        }
+        if (style) {
+          style = await page.evaluate((i) => document.querySelector('#style').innerText, i);
+          style = style.split('Style: ')[1];
         }
         
         await new Promise(resolve => setTimeout(resolve, 500));
         console.log('Product link: ',href)
         console.log('Attribute: ',attribute)
         console.log('Ships from: ',shipsFrom)
+        console.log('Style: ',style)
         // Add Product to Cart on Ali
-        await new Promise(resolve => addProductToCart(resolve, href, attribute, shipsFrom));
+        await new Promise(resolve => addProductToCart(resolve, href, attribute, shipsFrom, style));
       }
     }
     console.log('cart:', cart);
@@ -1029,7 +1091,7 @@ const processOrders = async (resolve) => {
       await page.click('.dropdown-group > span > button > .text-truncate > .strong')
       // Mark order as In Progress
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > div > div.col-md-4.pr-md-0 > div > div > div > div > ul > li:nth-child(3) > span')
+      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > div > div.col-xs-12.col-sm-6.wt-pl-xs-0.wt-pr-xs-0.order-states-dropdown > div > div > div > div > ul > li:nth-child(3) > span')
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
       if (index < orderCount) {
