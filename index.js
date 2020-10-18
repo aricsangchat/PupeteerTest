@@ -291,15 +291,20 @@ const loginAliExpress = async (resolve) => {
       // Wait 5 Seconds
       await new Promise(resolve => setTimeout(resolve, 8000));
       // Select Login Form from within Iframe
-      const loginIframeElement = await aliPage.$('iframe[id="alibaba-login-box"]');
-      const loginIframeContent = await loginIframeElement.contentFrame();
+      // const loginIframeElement = await aliPage.$('iframe[id="alibaba-login-box"]');
+      // const loginIframeContent = await loginIframeElement.contentFrame();
       // Fill in Username
-      await loginIframeContent.evaluate(() => {
+      // await loginIframeContent.evaluate(() => {
+      //   document.querySelector('#fm-login-id').value = '';
+      // });
+      await aliPage.evaluate(() => {
         document.querySelector('#fm-login-id').value = '';
       });
-      await loginIframeContent.type('#fm-login-id', aliCredentials.username, { delay: 100 });
+      // await loginIframeContent.type('#fm-login-id', aliCredentials.username, { delay: 100 });
+      await aliPage.type('#fm-login-id', aliCredentials.username, { delay: 100 });
       // Fill in Password
-      await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
+      // await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
+      await aliPage.type('#fm-login-password', aliCredentials.password, { delay: 100 });
       // Wait 1 second
       await new Promise(resolve => setTimeout(resolve, 1000));
       // Keypress Enter
@@ -783,8 +788,8 @@ const checkout = async (resolve) => {
   await new Promise(resolve => setTimeout(resolve, 2500));
   await checkoutPage.waitForSelector('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
   await checkoutPage.click('.search-select:nth-child(1) > .zoro-ui-select > .next-select > .next-input > .next-select-values');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  await checkoutPage.type('#ae-search-select-3', country.charAt(0), { delay: 100 });
+  //await new Promise(resolve => setTimeout(resolve, 1000));
+  // await checkoutPage.type('#ae-search-select-3', country.charAt(0), { delay: 100 });
   await new Promise(resolve => setTimeout(resolve, 1000));
   const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
   console.log('countries:', countries.length);
@@ -803,8 +808,8 @@ const checkout = async (resolve) => {
   // Select State
   await checkoutPage.waitForSelector('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
   await checkoutPage.click('.search-select:nth-child(2) > .zoro-ui-select > .next-select > .next-input > .next-input-control > .next-select-arrow > .next-icon')
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  await checkoutPage.type('#ae-search-select-3', state.charAt(1), { delay: 100 });
+  // await new Promise(resolve => setTimeout(resolve, 1500));
+  // await checkoutPage.type('#ae-search-select-3', state.charAt(1), { delay: 100 });
   await new Promise(resolve => setTimeout(resolve, 1000));
   const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
   console.log('states:', states.length);
@@ -822,8 +827,8 @@ const checkout = async (resolve) => {
   await new Promise(resolve => setTimeout(resolve, 5000));
   // Select City
   await checkoutPage.click('.search-select:nth-child(3) > .zoro-ui-select > .next-select > .next-input > .next-select-values')
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  await checkoutPage.type('#ae-search-select-3', city.charAt(0), { delay: 100 });
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+  // await checkoutPage.type('#ae-search-select-3', city.charAt(0), { delay: 100 });
   
   await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -1119,8 +1124,8 @@ const initializeWorkFlow = async () => {
     slowMo: 150,
     args: [
         '--disable-notifications',
-        '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
-        '--load-extension=../../AliAddressAutoFill/extension/',
+        '--disable-extensions-except=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        '--load-extension=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
     ],
     defaultViewport: null,
     userDataDir: "./user_data"
