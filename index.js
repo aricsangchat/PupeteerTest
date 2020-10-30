@@ -267,8 +267,11 @@ const loginAliExpress = async (resolve) => {
   await new Promise(resolve => setTimeout(resolve, 3000));
   // Close Popup
   let popup = true;
+  let popupIframeContent = '';
   try {
-    await page.waitForSelector('.rax-image', {
+    const popupIframeElement = await aliPage.$('body > iframe:nth-child(16)');
+    popupIframeContent = await popupIframeElement.contentFrame();
+    await popupIframeContent.waitForSelector('#recyclerview', {
       timeout: 5000
     })
     console.log('popup')
@@ -278,7 +281,10 @@ const loginAliExpress = async (resolve) => {
   }
 
   if (popup) {
-    await aliPage.click('.rax-image ');
+    // await popupIframeContent.click('#recyclerview > div > div.mui-zebra-module > div > div > img');
+    await popupIframeContent.evaluate(() => {
+      document.querySelector('#recyclerview > div > div.mui-zebra-module > div > div > img').click();
+    });
   }
 
   let signInText = await aliPage.evaluate(() => document.querySelector('.flyout-welcome-text').innerText);
@@ -308,7 +314,8 @@ const loginAliExpress = async (resolve) => {
       // Wait 1 second
       await new Promise(resolve => setTimeout(resolve, 1000));
       // Keypress Enter
-      await aliPage.keyboard.press('Enter');
+      // await aliPage.keyboard.press('Enter');
+      await aliPage.click('#batman-dialog-wrap > div > div.fm-tabs-content > div > div > button');
       await new Promise(resolve => setTimeout(resolve, 5000));
       await aliPage.close();
       return resolve();
@@ -571,10 +578,11 @@ const addTrackingNumbers = async (resolve) => {
               console.log('index', index)
               let selector = '#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div > div:nth-child('+index+') > div > span > div.display-inline-block.shipping-description-small > button';
               let _trackingNumber = await page.evaluate((selector) => {
-                console.log('selector',selector);
+                //console.log('selector',selector);
                 return document.querySelector(selector).innerText
               }, selector);
-              console.log("_trackNumber",_trackingNumber);
+              _trackingNumber = _trackingNumber.split('e')[1];
+              console.log("_trackNumber: ", _trackingNumber);
               if (_trackingNumber == order.trackingDetails.number) {
                 // do nothing
                 trackingFlag = true;
@@ -681,8 +689,6 @@ const unabbreviateState = (state) => {
 
 const addPrivateMessage = async (resolve, msg) => {
   // Click add private note
-  await new Promise(resolve => setTimeout(resolve, 500));
-
   try {
     await page.click('div > .col-group > .col-xs-12 > .btn:nth-child(1) > .text-body-smaller');
   } catch {
@@ -711,11 +717,14 @@ const checkout = async (resolve) => {
   await checkoutPage.click('.captain > .select-all-container > .next-checkbox-wrapper > .next-checkbox > .next-checkbox-input');
   
   // click place order and wait for billing page
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise(resolve => setTimeout(resolve, 10000));
+  
+  //checkoutPage.click('#checkout-button') 
   await Promise.all([
     checkoutPage.waitForNavigation(),
-    await checkoutPage.click('#checkout-button') 
+    checkoutPage.click('#checkout-button') 
   ]);
+  
   await new Promise(resolve => setTimeout(resolve, 2000));
   // Save address details from auto fill helper
   let name = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #name').innerText);
@@ -731,7 +740,7 @@ const checkout = async (resolve) => {
   await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
   // Click edit address button
   await new Promise(resolve => setTimeout(resolve, 2000));
-  await checkoutPage.click('#main > div:nth-child(1) > div > div > div:nth-child(4) > div > div.next-radio-group.next-radio-group-hoz > div > label > span.next-radio-label > div > div.address-opt > button:nth-child(1)')
+  await checkoutPage.click('.address-opt > button:nth-child(1)')
   
   // await checkoutPage.waitForSelector('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   // await checkoutPage.click('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
@@ -1020,7 +1029,7 @@ const processOrders = async (resolve) => {
         await new Promise(resolve => addPrivateMessage(resolve, removeSpecialCharacters(customerName)));
         cart = true;
         // Click Save the Address
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 500));
         await page.click('.col-group #saveAddress')
         await new Promise(resolve => setTimeout(resolve, 500));
         // Get Product URL
@@ -1096,7 +1105,7 @@ const processOrders = async (resolve) => {
       await page.click('.dropdown-group > span > button > .text-truncate > .strong')
       // Mark order as In Progress
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > div > div.col-xs-12.col-sm-6.wt-pl-xs-0.wt-pr-xs-0.order-states-dropdown > div > div > div > div > ul > li:nth-child(3) > span')
+      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > span > span.col-xs-12.col-sm-6.wt-pl-xs-0.wt-pr-xs-0.order-states-dropdown > span > div > div > div > ul > li:nth-child(3) > span')
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
       if (index < orderCount) {
@@ -1124,8 +1133,10 @@ const initializeWorkFlow = async () => {
     slowMo: 150,
     args: [
         '--disable-notifications',
-        '--disable-extensions-except=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
-        '--load-extension=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        // '--disable-extensions-except=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        // '--load-extension=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
+        '--load-extension=../../AliAddressAutoFill/extension/',
     ],
     defaultViewport: null,
     userDataDir: "./user_data"
