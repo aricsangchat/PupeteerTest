@@ -608,10 +608,10 @@ const addTrackingNumbers = async (resolve) => {
           // Check if tracking # already exists
           if (shipStatus == 'Pre-transit' || (shipStatus == 'In transit' || shipStatus == 'Delivered')) {
             const trackingNumberHandle = await page.$$('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div .text-body-smaller');
-            console.log(trackingNumberHandle.length);
+            console.log('tracking number length',trackingNumberHandle.length);
             for (let index = 1; index <= trackingNumberHandle.length; index++) {
               console.log('index', index)
-              let selector = '#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div > div:nth-child('+index+') > div > span > div.display-inline-block.shipping-description-small > button';
+              let selector = '#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(3) > div > div > div:nth-child('+index+') > div > div > div.display-inline-block.shipping-description-small > button';
               
               let _trackingNumber = await page.evaluate((selector) => {
                 //console.log('selector',selector);
@@ -620,7 +620,7 @@ const addTrackingNumbers = async (resolve) => {
               _trackingNumber = _trackingNumber.split('e')[1];
               console.log("listed_trackNumber: ", _trackingNumber);
               console.log("trackNumber: ", order.trackingDetails.number);
-              if (_trackingNumber == order.trackingDetails.number) {
+              if (_trackingNumber.includes(order.trackingDetails.number)) {
                 // do nothing
                 trackingFlag = true;
               }
