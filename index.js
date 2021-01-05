@@ -474,7 +474,13 @@ const loginEtsy = async (resolve) => {
     
   ]);
   // Check if Logged in by evaluating text
-  let signInText = await page.evaluate(() => document.querySelector('#gnav-header-inner > div.wt-flex-shrink-xs-0 > nav > ul > li:nth-child(4) > div > div > ul > li:nth-child(6) > a > div.wt-ml-xs-2.wt-flex-grow-xs-1 > p').innerText);
+  let signInText = null;
+  try {
+    signInText = await page.evaluate(() => document.querySelector('#gnav-header-inner > div.wt-flex-shrink-xs-0 > nav > ul > li:nth-child(4) > div > div > ul > li:nth-child(6) > a > div.wt-ml-xs-2.wt-flex-grow-xs-1 > p').innerText);
+  } catch (error) {
+
+  }
+  
   // const loggedin = await page.evaluate(() => {
   //     return document.querySelectorAll('#sub-nav-user-navigation').length;
   // });
@@ -670,13 +676,16 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom, style) => {
   
   for (let index = 1; index <= skuProperty.length; index++) {
     let skuTitle =  await productPage.evaluate((index) => document.querySelector('.sku-wrap > div:nth-child('+index+') .sku-title').innerText, index);
-    console.log('sku Title',skuTitle);
+    skuTitle = skuTitle.trim();
+    console.log('sku Title: ', skuTitle);
     if (skuTitle == 'Color:' || skuTitle == 'Emitting Color:') {
       if (style !== '0' && style !== false) {
         await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+style+')');
       }
     } else if (skuTitle == 'Size:' || (skuTitle == 'Emitting Color:' || skuTitle == 'Metal Color:') ) {
+      console.log('ran', index, attribute)
       if (attribute !== '0' && attribute !== false) {
+        console.log('ran', index)
         await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+attribute+')');
       }
     } else if (skuTitle == 'Ships From:') {
@@ -752,18 +761,19 @@ const checkout = async (resolve) => {
   ]);
   await new Promise(resolve => setTimeout(resolve, 2000));
   // Select all products in cart
-  await checkoutPage.click('.captain > .select-all-container > .next-checkbox-wrapper > .next-checkbox > .next-checkbox-input');
+  await checkoutPage.click('#root > div > div > div:nth-child(1) > div.main > div.card-container.captain-container > div > div.select-all-container > label > span.next-checkbox > input');
   
-  // click place order and wait for billing page
-  await new Promise(resolve => setTimeout(resolve, 10000));
+  // Click Buy and navigate to Billing Page
+  await new Promise(resolve => setTimeout(resolve, 3000));
   
-  //checkoutPage.click('#checkout-button') 
+  // await checkoutPage.click('#checkout-button > span')
+
   await Promise.all([
     checkoutPage.waitForNavigation(),
     checkoutPage.click('#checkout-button') 
   ]);
   
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise(resolve => setTimeout(resolve, 10000));
   // Save address details from auto fill helper
   let name = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #name').innerText);
   let firstLine = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #firstLine').innerText);
@@ -775,14 +785,23 @@ const checkout = async (resolve) => {
     state = unabbreviateState(state);
   }
   let zip = await checkoutPage.evaluate(() => document.querySelector('.autoFillContainer #zip').innerText);
-  
-  // Click on Address
-  await checkoutPage.waitForSelector('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
-  await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
-  // Click edit address button
+
+  // 2021 Ali New Address Design
+  // Enter Address Details
+  await checkoutPage.click('#main > div:nth-child(1) > div > div.address-list-opt > button:nth-child(2)')
   await new Promise(resolve => setTimeout(resolve, 2000));
-  await checkoutPage.click('.address-opt > button:nth-child(1)')
-  
+  await checkoutPage.click('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > ul > li > div.address-opt > button:nth-child(2)')
+  // 2021 Ali New Address Design
+
+  // 2020 Ali Old Address Design
+  // Click on Address
+  // await checkoutPage.waitForSelector('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
+  // await checkoutPage.click('.display-card > .next-radio-wrapper > .next-radio-label > .address-item > .address-main')
+  // // Click edit address button
+  // await new Promise(resolve => setTimeout(resolve, 2000));
+  // await checkoutPage.click('.address-opt > button:nth-child(1)')
+  // 2020 Ali Old Address Design
+
   // await checkoutPage.waitForSelector('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   // await checkoutPage.click('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   
@@ -922,8 +941,10 @@ const checkout = async (resolve) => {
   await new Promise(resolve => setTimeout(resolve, 500));
   // await checkoutPage.type('.group-content #mobileNo', '5108584530', { delay: 100 });
 
-  // Click Confirm button
-  await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary')
+  // Click Save Address and Continue
+  // await checkoutPage.click('.next-loading > .next-loading-wrap > .ship-info > .save > .next-btn-primary') 2020 old address design
+  await checkoutPage.click('body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-container > div > div.next-dialog-body > div > div > div > div.save > button.next-btn.next-large.next-btn-primary')
+
   
   // Select Shipping
   const changeShippingCount = await checkoutPage.$$('.logistics-company');
