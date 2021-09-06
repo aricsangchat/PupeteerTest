@@ -372,6 +372,8 @@ const checkNewTrackingEmails = (resolve) => {
           labelIds: ['UNREAD'],
           maxResults: 30
       });
+
+      console.log(messageIds)
   
       console.log('Tracking Emails Array',messageIds.data.messages);
       if (messageIds.data.resultSizeEstimate !== 0) {
@@ -529,23 +531,23 @@ const loginEtsy = async (resolve) => {
 
 const selectShippingCompany = async (resolve, order) => {
   
-    await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
-    await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
+    await page.waitForSelector('#shipping-carrier-select')
+    await page.click('#shipping-carrier-select')
     if (order.trackingDetails.shippingCompany == 'FEDEX_US') {
-      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '3')
+      await page.select('#shipping-carrier-select', '3')
     } else {
       // Select Other
-      await page.select('.col-group > div > .col-md-6 > .select-wrap > .select', '-1')
+      await page.select('#shipping-carrier-select', '-1')
       // Wait for other input and click
-      await page.waitForSelector('.col-group > div > .col-md-6 > .select-wrap > .select')
-      await page.click('.col-group > div > .col-md-6 > .select-wrap > .select')
+      await page.waitForSelector('#shipping-carrier-select')
+      await page.click('#shipping-carrier-select')
       // Enter China EMS in other
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-5.pr-xl-0.mb-xs-2.mb-xl-0 > div.mt-xs-2 > input', 'China EMS', {delay: 100});
+      await page.type('#mark-as-complete-overlay > div > div > div:nth-child(2) > div > div > div > div:nth-child(2) > div > div > div.wt-grid__item-xs-12.wt-grid__item-md-8.wt-mt-xs-3.wt-mt-md-0 > div > div.wt-grid__item-md-5.wt-grid__item-xs-12 > div.wt-mt-xs-2 > input', 'China EMS', {delay: 100});
     }
     
     await new Promise(resolve => setTimeout(resolve, 500));
-    await page.click('.overlay-region > div > div.overlay-footer.clearfix.bt-xs-0.p-xs-0.position-absolute.position-bottom.width-full.z-index-2 > div > div > div > div.flag.hide-xs.hide-sm > div.flag-img.flag-img-right.no-wrap > button.btn.btn-primary.btn-orange');
+    await page.click('#mark-as-complete-overlay > div > div > div.wt-overlay__sticky-footer-container.wt-z-index-1 > div > div:nth-child(3) > button');
     return resolve();
   
 
@@ -595,6 +597,9 @@ const addTrackingNumbers = async (resolve) => {
           // Found correct customer
           let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
           console.log('ship status',shipStatus);
+          if (shipStatus == 'Canceled') {
+            continue;
+          }
           let trackingFlag = false;
           // Add First Trakcing Number
           if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
@@ -602,11 +607,12 @@ const addTrackingNumbers = async (resolve) => {
             console.log('add tracking')
             // Click Update Progress Icon
             await page.click('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) button');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 1000));            
             await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(2) > div > div > div > ul > li.pl-xs-2.pr-xs-2.bt-xs-1.pt-xs-2.mt-xs-2 a');
+            
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Enter Tracking Number
-            await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
+            await page.type('#mark-as-complete-overlay > div > div > div:nth-child(2) > div > div > div > div:nth-child(2) > div > div > div.wt-grid__item-xs-12.wt-grid__item-md-8.wt-mt-xs-3.wt-mt-md-0 > div > div.wt-grid__item-md-6.wt-ml-md-6.wt-mt-md-0.wt-grid__item-xs-12.wt-ml-xs-0.wt-mt-xs-1 > input', order.trackingDetails.number, {delay: 100});
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Select Shipping Company
             await new Promise(resolve => selectShippingCompany(resolve, order));
@@ -643,7 +649,7 @@ const addTrackingNumbers = async (resolve) => {
             await page.click('#search-view > div > div.panel-body.bg-white > div > div > div.flag-img.flag-img-right.pt-xs-2.pt-xl-3.pl-xs-2.pl-xl-3.pr-xs-3.pr-xl-3.vertical-align-top.icon-t-2.hide-xs.hide-sm > div > div:nth-child(3) > div > div > button:nth-child(2) > div > span');
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Enter Tracking Number
-            await page.type('.overlay-region > div > div.overlay-body.p-xs-0.height-full.overflow-scroll > div > div:nth-child(2) > div > div.mt-xs-3.mt-md-4.mb-xs-8.mb-md-4.pl-xs-3.pr-xs-3.pb-xs-8.pl-md-5.pr-md-5.pb-md-5.pl-lg-6.pr-lg-6.pb-lg-6 > div.panel.mt-xs-4.mb-xs-0 > div > div > div > div.col-lg-6.col-xl-7.mt-xs-2.mt-md-3.mt-lg-0 > div > div > div.col-md-6.col-lg-12.col-xl-7 > input', order.trackingDetails.number, {delay: 100});
+            await page.type('#mark-as-complete-overlay > div > div > div:nth-child(2) > div > div > div > div:nth-child(2) > div > div > div.wt-grid__item-xs-12.wt-grid__item-md-8.wt-mt-xs-3.wt-mt-md-0 > div > div.wt-grid__item-md-6.wt-ml-md-6.wt-mt-md-0.wt-grid__item-xs-12.wt-ml-xs-0.wt-mt-xs-1 > input', order.trackingDetails.number, {delay: 100});
             
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Select Shipping Company
@@ -677,12 +683,12 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom, style) => {
   for (let index = 1; index <= skuProperty.length; index++) {
     let skuTitle =  await productPage.evaluate((index) => document.querySelector('.sku-wrap > div:nth-child('+index+') .sku-title').innerText, index);
     skuTitle = skuTitle.trim();
-    console.log('sku Title: ', skuTitle);
+    console.log('sku Title:', skuTitle);
     if (skuTitle == 'Color:' || skuTitle == 'Emitting Color:') {
       if (style !== '0' && style !== false) {
         await productPage.click('#root > div > div.product-main > div > div.product-info > div.product-sku > div > div:nth-child('+index+') > ul > li:nth-child('+style+')');
       }
-    } else if (skuTitle == 'Size:' || (skuTitle == 'Emitting Color:' || skuTitle == 'Metal Color:') ) {
+    } else if (skuTitle == 'Size:' || (skuTitle == 'Emitting Color:' || (skuTitle == 'Metal Color:' || skuTitle == 'Length:')) ) {
       console.log('ran', index, attribute)
       if (attribute !== '0' && attribute !== false) {
         console.log('ran', index)
@@ -806,7 +812,7 @@ const checkout = async (resolve) => {
   // await checkoutPage.click('.next-radio-wrapper > .next-radio-label > .address-item > .address-opt > .next-btn:nth-child(1)')
   
   // Enter Name
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 3000));
   await checkoutPage.click('.group-content #contactPerson')
 
   for (let index = 0; index < 40; index++) {
@@ -861,13 +867,13 @@ const checkout = async (resolve) => {
   // await checkoutPage.type('#ae-search-select-3', country.charAt(0), { delay: 100 });
   await new Promise(resolve => setTimeout(resolve, 1000));
   const countries = await checkoutPage.$$('.next-menu > .dropdown-content > .next-menu-item');
-  console.log('countries:', countries.length);
+  //console.log('countries:', countries.length);
 
   for (let index = 1; index <= countries.length; index++) {
     let innerText = await checkoutPage.evaluate((index) => document.querySelector('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name').innerText, index);
     
     if (innerText.toUpperCase() == country) {
-      console.log('index of country:', index);
+      //console.log('index of country:', index);
       await checkoutPage.click('.next-menu > .dropdown-content > .next-menu-item:nth-child('+index+') > .country-item > .country-name');
       break;
     }
@@ -881,14 +887,14 @@ const checkout = async (resolve) => {
   // await checkoutPage.type('#ae-search-select-3', state.charAt(1), { delay: 100 });
   await new Promise(resolve => setTimeout(resolve, 1000));
   const states = await checkoutPage.$$('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item');
-  console.log('states:', states.length);
+  //console.log('states:', states.length);
 
   for (let index = 1; index <= states.length; index++) {
     let innerText = await checkoutPage.evaluate((index) => document.querySelector('body > div.next-overlay-wrapper.opened > div > div > ul > li:nth-child('+index+')').innerText, index);
-    console.log('dropdownState = ',innerText.toUpperCase(),)
-    console.log('state', state.toUpperCase())
+    //console.log('dropdownState = ',innerText.toUpperCase(),)
+    //console.log('state', state.toUpperCase())
     if (innerText.toUpperCase() == state.toUpperCase()) {
-      console.log('index of state:', index);
+      //console.log('index of state:', index);
       await checkoutPage.click('.opened > .next-overlay-inner > .next-menu > .dropdown-content > .next-menu-item:nth-child('+ index +')')
       break;
     }
@@ -1078,7 +1084,7 @@ const processOrders = async (resolve) => {
     // Click on First Order
     console.log("order Loop Index:", index)
     await new Promise(resolve => setTimeout(resolve, 5000));
-    await page.click('#browse-view > div > div.col-lg-9.pl-xs-0.pl-md-4.pr-xs-0.pr-md-4.pr-lg-0.float-left > div:nth-child(4) > div:nth-child(2) > div.panel-body > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-xs-12.col-md-8');
+    await page.click('#browse-view > div > div.col-lg-9.pl-xs-0.pl-md-4.pr-xs-0.pr-md-4.pr-lg-0.float-left > div:nth-child(3) > div:nth-child(2) > div.panel-body > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-xs-12.col-md-8');
     
 
     // Count Product in Order
@@ -1195,7 +1201,7 @@ const processOrders = async (resolve) => {
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
       if (index < orderCount) {
-        await page.click('#browse-view > div > div.col-lg-9.pl-xs-0.pl-md-4.pr-xs-0.pr-md-4.pr-lg-0.float-left > div:nth-child(4) > div:nth-child(2) > div.panel-body > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-xs-12.col-md-8');
+        await page.click('#root > div > div:nth-child(4) > div > div.position-fixed.height-full.position-top.position-left.width-full > div.peek-overlay.col-md-9.col-lg-7.col-xl-6.bg-gray.animated.position-absolute.position-top.position-right.pr-xs-0.pl-xs-0.height-full.animated-slide-in-left > button');
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
@@ -1203,7 +1209,7 @@ const processOrders = async (resolve) => {
     } else {
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
-      await page.click('#browse-view > div > div.col-lg-9.pl-xs-0.pl-md-4.pr-xs-0.pr-md-4.pr-lg-0.float-left > div:nth-child(4) > div:nth-child(2) > div.panel-body > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-xs-12.col-md-8');
+      await page.click('#root > div > div:nth-child(4) > div > div.position-fixed.height-full.position-top.position-left.width-full > div.peek-overlay.col-md-9.col-lg-7.col-xl-6.bg-gray.animated.position-absolute.position-top.position-right.pr-xs-0.pl-xs-0.height-full.animated-slide-in-left > button');
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
@@ -1219,10 +1225,10 @@ const initializeWorkFlow = async () => {
     slowMo: 150,
     args: [
         '--disable-notifications',
-        // '--disable-extensions-except=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
-        // '--load-extension=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
-        '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
-        '--load-extension=../../AliAddressAutoFill/extension/',
+        '--disable-extensions-except=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        '--load-extension=/Users/aricsangchat/Documents/sites/AliAddressAutoFill/extension',
+        // '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
+        // '--load-extension=../../AliAddressAutoFill/extension/',
     ],
     defaultViewport: null,
     userDataDir: "./user_data"
