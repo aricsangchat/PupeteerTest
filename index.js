@@ -1209,7 +1209,7 @@ const processOrders = async (resolve) => {
     } else {
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
-      await page.click('#root > div > div:nth-child(4) > div > div.position-fixed.height-full.position-top.position-left.width-full > div.peek-overlay.col-md-9.col-lg-7.col-xl-6.bg-gray.animated.position-absolute.position-top.position-right.pr-xs-0.pl-xs-0.height-full.animated-slide-in-left > button');
+      await page.click('#root > div > div:nth-child(3) > div > div.position-fixed.height-full.position-top.position-left.width-full > div.peek-overlay.col-md-9.col-lg-7.col-xl-6.bg-gray.animated.position-absolute.position-top.position-right.pr-xs-0.pl-xs-0.height-full.animated-slide-in-left > button');
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
