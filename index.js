@@ -126,6 +126,11 @@ const checkBadNewsEmail = async (resolve) => {
 // Opens AliExpress and checks to see if order was delivered
 const checkDelivery = async (resolve) => {
   page = await browser.newPage();
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   
   for (order of orderArray) {  
     console.log(`${orderDetailUrl}${order.orderId}`)
@@ -259,6 +264,11 @@ const markEmailAsRead = (resolve) => {
 // Login to AliExpress
 const loginAliExpress = async (resolve) => {
   let aliPage = await browser.newPage();
+  await aliPage.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   // Go to Ali Express
   await Promise.all([
     aliPage.waitForNavigation(),
@@ -343,11 +353,11 @@ const loginAliExpress = async (resolve) => {
       // await loginIframeContent.type('#fm-login-password', aliCredentials.password, { delay: 100 });
       await aliPage.type('#fm-login-password', aliCredentials.password, { delay: 100 });
       // Wait 1 second
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 10000));
       // Keypress Enter
       // await aliPage.keyboard.press('Enter');
-      await aliPage.click('#root > div > div > div > div > button');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await aliPage.click('#root > div > div > div > div.comet-tabs-container > div > div > button');
+      await new Promise(resolve => setTimeout(resolve, 10000));
       await aliPage.close();
       return resolve();
     // } else {
@@ -402,6 +412,11 @@ const checkNewTrackingEmails = (resolve) => {
 // Opens AliExpress and checks to see if order was delivered
 const getTrackingNumber = async (resolve) => {
   page = await browser.newPage();
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   
   for (order of recentlyShippedOrders) {  
     console.log(`${orderDetailUrl}${order.orderId}`)
@@ -588,11 +603,11 @@ const addTrackingNumbers = async (resolve) => {
       } catch(e){
         customerFound = false;
       }
-
+      console.log("customerFound:", customerFound)
       if (customerFound) {
         let customerName = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div:nth-child(4) > div > div > div > div > span').innerText);
-        customerName = customerName.toUpperCase();
-        console.log('customer name', customerName);
+        customerName = customerName;
+        console.log('customer name', customerName, 'is equal?', order.trackingDetails.customer);
         if (customerName == order.trackingDetails.customer) {
           // Found correct customer
           let shipStatus = await page.evaluate(() => document.querySelector('#search-view > div > div.panel-body.bg-white > div:nth-child(1) > div > div.flag-body.pt-xs-3.pt-xl-4.pr-xs-3.pr-md-0 > div.col-group.col-flush > div.col-md-4.pl-xs-0.hide-xs.hide-sm > div.text-body.strong > span > div').innerText);
@@ -671,6 +686,11 @@ const addProductToCart = async (resolve, href, attribute, shipsFrom, style) => {
   //await new Promise(resolve => loginAliExpress(resolve));
   // Open New Product Page
   let productPage = await browser.newPage();
+  await productPage.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   // Go to product page
   await Promise.all([
     productPage.waitForNavigation(),
@@ -760,6 +780,11 @@ const addPrivateMessage = async (resolve, msg) => {
 // Check out on Ali
 const checkout = async (resolve) => {
   let checkoutPage = await browser.newPage();
+  await checkoutPage.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   await new Promise(resolve => setTimeout(resolve, 1000));
   await Promise.all([
     checkoutPage.waitForNavigation(),
@@ -1220,7 +1245,8 @@ const processOrders = async (resolve) => {
 
 // One function to Rule them all
 const initializeWorkFlow = async () => {
-  browser = await puppeteer.launch({ 
+  browser = await puppeteer.launch({
+    //executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     headless: false,
     slowMo: 150,
     args: [
@@ -1230,11 +1256,18 @@ const initializeWorkFlow = async () => {
         // '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
         // '--load-extension=../../AliAddressAutoFill/extension/',
     ],
-    defaultViewport: null,
-    userDataDir: "./user_data"
+    defaultViewport: {width: 1366, height: 768},
+    //userDataDir: "/Users/aricsangchat/Library/Application Support/Google/Chrome",
+    userDataDir: "./user_data",
+    //ignoreDefaultArgs: ['--disable-extensions'],
   });
   // open new page in browser
   page = await browser.newPage();
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => false
+    })
+  })
   // Get gmail creds
   await new Promise(resolve => getGmailCreds(resolve));
   // // Get Other, ali and etsy creds
