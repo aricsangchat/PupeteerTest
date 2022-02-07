@@ -304,23 +304,23 @@ const loginAliExpress = async (resolve) => {
   //     document.querySelector('#recyclerview > div > div.mui-zebra-module > div > div > img').click();
   //   });
   // }
+  // Check Sign In Text
   let signInText = null;
   try {
-    signInText = await aliPage.evaluate(() => document.querySelector('#root > div > div > div > div > div > button').innerText);
+    signInText = await aliPage.evaluate(() => document.querySelector('#root > div > div > div > div.comet-tabs-container > div > div > div > button').innerText);
   } catch (e) {
 
   }
-  
   console.log('Signin Text:', signInText);
-
+  // If it says access now click on button
   if (signInText == 'ACCESS NOW') {
     await aliPage.click('#root > div > div > div > div > div > button');
   }
-
+  // Page will reload and check if button exists, not sure...
   let accessNow = true;
   try {
     await aliPage.waitForSelector('#root > div > div > div > div > button',{
-      timeout: 3000
+      timeout: 10000
     })
     accessNow = false;
 
@@ -356,7 +356,7 @@ const loginAliExpress = async (resolve) => {
       await new Promise(resolve => setTimeout(resolve, 10000));
       // Keypress Enter
       // await aliPage.keyboard.press('Enter');
-      await aliPage.click('#root > div > div > div > div.comet-tabs-container > div > div > button');
+      await aliPage.click('#root > div > div > div > div > button');
       await new Promise(resolve => setTimeout(resolve, 10000));
       await aliPage.close();
       return resolve();
@@ -503,6 +503,7 @@ const loginEtsy = async (resolve) => {
   // });
 
   // Check if logged in
+  console.log(signInText)
   if (signInText == "Sign out") {
     // already logged in
     return resolve();
@@ -562,6 +563,7 @@ const selectShippingCompany = async (resolve, order) => {
     }
     
     await new Promise(resolve => setTimeout(resolve, 500));
+    // Click Mark Complete Button
     await page.click('#mark-as-complete-overlay > div > div > div.wt-overlay__sticky-footer-container.wt-z-index-1 > div > div:nth-child(3) > button');
     return resolve();
   
@@ -617,7 +619,7 @@ const addTrackingNumbers = async (resolve) => {
           }
           let trackingFlag = false;
           // Add First Trakcing Number
-          if (shipStatus !== 'Pre-transit' && (shipStatus !== 'In transit' && shipStatus !== 'Delivered')) {
+          if (!shipStatus.includes('Pre-transit') && (!shipStatus.includes('In transit') && !shipStatus.includes('Delivered'))) {
             // Add tracking # for order that has no tracking already
             console.log('add tracking')
             // Click Update Progress Icon
@@ -627,7 +629,7 @@ const addTrackingNumbers = async (resolve) => {
             
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Enter Tracking Number
-            await page.type('#mark-as-complete-overlay > div > div > div:nth-child(2) > div > div > div > div:nth-child(2) > div > div > div.wt-grid__item-xs-12.wt-grid__item-md-8.wt-mt-xs-3.wt-mt-md-0 > div > div.wt-grid__item-md-6.wt-ml-md-6.wt-mt-md-0.wt-grid__item-xs-12.wt-ml-xs-0.wt-mt-xs-1 > input', order.trackingDetails.number, {delay: 100});
+            await page.type('#mark-as-complete-overlay > div > div > div:nth-child(2) > div > div > div > div:nth-child(2) > div > div > div > div.wt-grid__item-xs-12.wt-mt-xs-3.wt-mt-md-0.wt-grid__item-md-8 > div > div.wt-grid__item-md-6.wt-ml-md-6.wt-mt-md-0.wt-grid__item-xs-12.wt-ml-xs-0.wt-mt-xs-1 > input', order.trackingDetails.number, {delay: 100});
             await new Promise(resolve => setTimeout(resolve, 1500));
             // Select Shipping Company
             await new Promise(resolve => selectShippingCompany(resolve, order));
@@ -763,8 +765,10 @@ const unabbreviateState = (state) => {
 const addPrivateMessage = async (resolve, msg) => {
   // Click add private note
   try {
-    await page.click('div > .col-group > .col-xs-12 > .btn:nth-child(1) > .text-body-smaller');
+    // check if already has private notes 
+    await page.click('#order-detail-container > div:nth-child(4) > div > div > div > div > div.flag-body.vertical-align-top > div.mt-xs-1 > div > div > button');
   } catch {
+    // if not add private new note
     await page.click('#order-detail-container > div.col-group.mb-xs-4 > div > div > div > div > div.flag-body.vertical-align-top > div.mt-xs-1 > div > div > button');
 
   }
@@ -1222,7 +1226,7 @@ const processOrders = async (resolve) => {
       
       // Mark order as In Progress
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > span > span.wt-pl-xs-0.wt-pr-xs-0.order-states-dropdown > span > div > div > button:nth-child(3) > span')
+      await page.click('#order-detail-container > div.col-group.mt-xs-4.mb-xs-2 > div:nth-child(2) > span > span.wt-pl-xs-0.wt-pr-xs-0.order-states-dropdown > span > div > div > div > div > button:nth-child(3)')
       // Close current order
       await new Promise(resolve => setTimeout(resolve, 5000));
       if (index < orderCount) {
@@ -1256,7 +1260,7 @@ const initializeWorkFlow = async () => {
         // '--disable-extensions-except=../../../../../../AliAddressAutoFill/extension',
         // '--load-extension=../../AliAddressAutoFill/extension/',
     ],
-    defaultViewport: {width: 1366, height: 768},
+    defaultViewport: null,
     //userDataDir: "/Users/aricsangchat/Library/Application Support/Google/Chrome",
     userDataDir: "./user_data",
     //ignoreDefaultArgs: ['--disable-extensions'],
